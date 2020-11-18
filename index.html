@@ -74,6 +74,7 @@
 			context.fillStyle = "#000000FF";
 			context.fillRect(0, 0, canvas.width, canvas.height);
 			context.lineWidth = 3;
+			context.lineJoin = "bevel";
 
 			// 描画する時間の範囲からフレームの範囲を取得する
 			const frameRangeStatement = database.prepare(
