@@ -178,14 +178,11 @@
 				locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.4.0/dist/${file}`
 			});
 
-			// ドラッグ&ドロップでファイルを読み込む
+			// ファイルを読み込む
 			let database = null;
 			let info = {};
-			document.addEventListener("dragover", e => { e.preventDefault(); });
-			document.addEventListener("drop", async e => {
+			const openFile = async (files) => {
 				document.getElementById("info").innerHTML = "ファイルを開いています...";
-				e.preventDefault();
-				const files = e.dataTransfer.files;
 				if (1 !== files.length) return;
 				const file = files[0];
 				let bytes = null;
@@ -209,6 +206,16 @@
 				document.getElementById("stopTime").value = info.stopTime;
 				document.getElementById("canvasWidth").value = info.width;
 				document.getElementById("canvasHeight").value = info.height;
+			};
+			document.getElementById("fileSelector").addEventListener("change", async e => {
+				const files = e.target.files;
+				await openFile(files);
+			});
+			document.addEventListener("dragover", e => { e.preventDefault(); });
+			document.addEventListener("drop", async e => {
+				e.preventDefault();
+				const files = e.dataTransfer.files;
+				await openFile(files);
 			});
 			document.getElementById("draw").addEventListener("click", async e => {
 				if (!database) return;
@@ -231,6 +238,7 @@
 	<p id="state">軌跡ファイルをドラッグ&ドロップしてください。</p>
 	<p id="info"></p>
 	<div>
+		<p>ファイルを選択 <input type="file" id="fileSelector"></p>
 		<p>始まりの秒数 <input type="number" id="startTime" value="0"></p>
 		<p>終わりの秒数 <input type="number" id="stopTime" value="0"></p>
 		<p>解像度 <input type="number" id="canvasWidth" value="640"> x <input type="number" id="canvasHeight" value="480"></p>
