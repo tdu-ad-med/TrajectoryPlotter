@@ -3,6 +3,10 @@
 	<!-- sql.js を CDN から読み込む -->
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.4.0/dist/sql-wasm.min.js" integrity="sha512-fYYdvx4lQ90HQ+2NhX5mpAUwnn9LwIuUc+gaG02z7LMfKoaE6GcZjZYD79LovSi4QfqcZ0+T3moNJcFCXKBWbA==" crossorigin="anonymous"></script>
 
+	<!-- その他のUIパーツをCDNから読み込む -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.6.0/nouislider.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.6.0/nouislider.min.js"></script>
+
 	<script type="text/javascript">
 		const hsvToRgb = (h, s, v) => {
 			let r = v * 255.0;
@@ -62,7 +66,7 @@
 		};
 
 		const draw = (database, info) => {
-			if (Object.keys(info) === 0) return;
+			if (Object.keys(info).length === 0) return;
 
 			// canvasのelementを取得
 			const canvas = document.getElementById("canvas");
@@ -151,7 +155,9 @@
 					personID = value[1];
 
 					// 色の指定
-					const color = hsvToRgb(Math.random(), 0.5, 1.0);
+					let h = parseFloat(personID) * 0.111;
+					h = h - Math.floor(h);
+					const color = hsvToRgb(h, 0.5, 1.0);
 					context.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.6)`;
 
 					// 新たに軌跡の描画を開始する
@@ -183,7 +189,7 @@
 			let database = null;
 			let info = {};
 			const openFile = async (files) => {
-				document.getElementById("info").innerHTML = "ファイルを開いています...";
+				document.getElementById("state").innerHTML = "ファイルを開いています...";
 				if (1 !== files.length) return;
 				const file = files[0];
 				let bytes = null;
@@ -199,14 +205,15 @@
 				if (database) database.close();
 				database = new sql.Database(bytes);
 				info = getInfo(database);
-				if (Object.keys(info) === 0) return;
-				document.getElementById("info").innerHTML = JSON.stringify(info);
-				document.getElementById("info").innerHTML = "完了しました。画面をクリックして描画を開始してください。";
+				if (Object.keys(info).length === 0) return;
+				document.getElementById("state").innerHTML = "";
 
 				document.getElementById("startTime").value = info.startTime;
 				document.getElementById("stopTime").value = info.stopTime;
 				document.getElementById("canvasWidth").value = info.width;
 				document.getElementById("canvasHeight").value = info.height;
+
+				document.getElementById('slider').noUiSlider.set([0, 1]);
 			};
 			document.getElementById("fileSelector").addEventListener("change", async e => {
 				const files = e.target.files;
@@ -220,30 +227,63 @@
 			});
 			document.getElementById("draw").addEventListener("click", async e => {
 				if (!database) return;
-				if (Object.keys(info) === 0) return;
-				document.getElementById("info").innerHTML = "軌跡を描画しています。";
+				if (Object.keys(info).length === 0) return;
+				document.getElementById("state").innerHTML = "軌跡を描画しています。";
 				const customInfo = {
 					"startTime": parseFloat(document.getElementById("startTime").value),
 					"stopTime": parseFloat(document.getElementById("stopTime").value),
 					"width": parseInt(document.getElementById("canvasWidth").value),
 					"height": parseInt(document.getElementById("canvasHeight").value)
 				};
-				draw(database, customInfo);
-				document.getElementById("info").innerHTML = "描画が完了しました。";
+				// drawは重たいので、その前にDOMを更新するためにdrawをsetTimeoutでキューの後ろにもっていく
+				setTimeout(() => {
+					draw(database, customInfo);
+					document.getElementById("state").innerHTML = "";
+				}, 0);
+			});
+			const slider = document.getElementById('slider');
+			noUiSlider.create(slider, {
+				start: [0, 0],
+				range: {
+					'min': 0,
+					'max': 1
+				},
+				connect: true
+			}).on('update', (values, handle) => {
+				if (Object.keys(info).length === 0) return;
+				document.getElementById("startTime").value = info.startTime + values[0] * info.stopTime;
+				document.getElementById("stopTime").value = info.startTime + values[1] * info.stopTime;
+
+				if(document.getElementById("check").checked) {
+					document.getElementById("state").innerHTML = "軌跡を描画しています。";
+					const customInfo = {
+						"startTime": parseFloat(document.getElementById("startTime").value),
+						"stopTime": parseFloat(document.getElementById("stopTime").value),
+						"width": parseInt(document.getElementById("canvasWidth").value),
+						"height": parseInt(document.getElementById("canvasHeight").value)
+					};
+					// drawは重たいので、その前にDOMを更新するためにdrawをsetTimeoutでキューの後ろにもっていく
+					setTimeout(() => {
+						draw(database, customInfo);
+						document.getElementById("state").innerHTML = "";
+					}, 0);
+				}
 			});
 		});
 	</script>
 </head>
 <body>
 	<canvas id="canvas" width="640" height="480"></canvas>
-	<p id="state">軌跡ファイルをドラッグ&ドロップしてください。</p>
-	<p id="info"></p>
+	<p>軌跡ファイルをドラッグ&ドロップしてください。</p>
 	<div>
 		<p>ファイルを選択 <input type="file" id="fileSelector"></p>
+		<div id="slider"></div>
 		<p>始まりの秒数 <input type="number" id="startTime" value="0"></p>
 		<p>終わりの秒数 <input type="number" id="stopTime" value="0"></p>
 		<p>解像度 <input type="number" id="canvasWidth" value="640"> x <input type="number" id="canvasHeight" value="480"></p>
+		<p id="state"></p>
 	</div>
 	<button id="draw">描画</button>
+	<p>スライダーの変更とともに描画する <input type="checkbox" id="check"></p>
 </body>
 </html>
