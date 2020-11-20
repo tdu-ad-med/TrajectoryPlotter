@@ -1,0 +1,49 @@
+<!doctype html>
+<html class="no-js" lang="ja">
+<head>
+	<meta charset="utf-8">
+	<title>Trajectory Plotter</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<!-- 各ブラウザのデフォルトの CSS を統一するための CSS を CDN から読み込む -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+
+	<!-- sql.js を CDN から読み込む -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.4.0/dist/sql-wasm.min.js" integrity="sha512-fYYdvx4lQ90HQ+2NhX5mpAUwnn9LwIuUc+gaG02z7LMfKoaE6GcZjZYD79LovSi4QfqcZ0+T3moNJcFCXKBWbA==" crossorigin="anonymous"></script>
+
+	<!-- メイン CSS -->
+	<link rel="stylesheet" href="./style.css">
+
+	<!-- メインプログラム -->
+	<script src="draw.js"></script>
+	<script src="main.js"></script>
+</head>
+<body>
+	<div class="main">
+		<h1 style="margin-top: min(4vw, 60px); margin-bottom: min(4vw, 60px);">Trajectory Plotter</h1>
+		<div id="plot" style="margin-top: min(4vw, 60px); margin-bottom: min(4vw, 60px); display: none;">
+			<canvas id="plot-canvas" width="1280" height="720" style="margin-bottom: min(1vw, 10px);"></canvas>
+			<canvas id="range-canvas" width="1280" height="160"></canvas>
+		</div>
+		<div id="upload">
+			<div class="upload-box" id="upload-box" style="position:relative;">
+				<div style="visibility: visible;" id="upload-box-main">
+					<h2 style="margin-top: min(6vw, 30px);">ファイルを<br>ここにドロップ</h2>
+					<h3 style="margin-top: min(6vw, 30px);" class="title-border">または</h3>
+					<div style="margin-top: min(10vw, 50px); margin-bottom: min(10vw, 50px)">
+						<label for="file-selector">
+							ファイルを選択
+							<input type="file" id="file-selector" style="display: none;">
+						</label>
+					</div>
+				</div>
+				<div style="position:absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);">
+					<img src="./loading.gif" style="visibility: hidden;" id="upload-box-loading">
+				</div>
+			</div>
+			<p style="margin-top: min(6vw, 30px);">軌跡データが格納された.sqlite3ファイルを開いてください</p>
+		</div>
+		<p style="color: #F00; text-align: left;" id="error"></p>
+	</div>
+</body>
+</html>

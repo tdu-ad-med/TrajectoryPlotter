@@ -1,0 +1,60 @@
+body {
+	background: #FFFFFF;
+	font-family: sans-serif;
+}
+h1 { font-size: min(8vw, 70px); font-weight: bold; }
+h2 { font-size: min(4vw, 40px); font-weight: bold; }
+h3 { font-size: min(4vw, 24px); font-weight: bold; }
+p  { font-size: min(3vw, 18px); font-weight: bold; }
+.main {
+	display: block;
+	width: 80%;
+	max-width: 800px;
+	margin: auto;
+	margin-bottom: 15vw; 
+	padding-top: min(8vw, 36px);
+	padding-left: 26px;
+	padding-right: 26px;
+	box-sizing: border-box;
+	color: #A6A6A6;
+	text-align: center;
+}
+.upload-box {
+	display: block;
+	width: max(120px, 70%);
+	margin: auto;
+	background: #F2F2F2;
+	border: min(2vw, 10px) dashed #D9D9D9;
+	border-radius: min(8vw, 40px);
+	box-sizing: border-box;
+	white-space: nowrap;
+	transition: background 0.1s;
+}
+label {
+	padding-top: min(2vw, 10px);
+	padding-bottom: min(2vw, 10px);
+	padding-left: min(4vw, 30px);
+	padding-right: min(4vw, 30px);
+	border-radius: min(2vw, 10px);
+	font-size: min(4vw, 30px);
+	font-weight: bold;
+	background: #A6A6A6;
+	color: #F2F2F2;
+	cursor: pointer;
+}
+.title-border {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.title-border:before, .title-border:after {
+	content: "";
+	border-top: 2px solid #A6A6A6;
+	width: min(24vw, 120px);
+	margin: min(2vw, 10px);
+}
+canvas {
+	width: 100%;
+	height: auto;
+	background: #F2F2F2;
+}
