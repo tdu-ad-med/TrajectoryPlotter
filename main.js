@@ -56,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	// スライドバーが更新されたとき(変更中)
 	slider.noUiSlider.on('update.one', (values, handle) => {
 		range_text.innerHTML
-			= `開始時間 : ${parseFloat(values[0]) / 1000.0} 秒<br>終了時間 : ${parseFloat(values[1])	 / 1000.0} 秒`;
+			= `開始時間 : ${timeFormatter(parseFloat(values[0]))}<br>終了時間 : ${timeFormatter(parseFloat(values[1]))}`;
 		range_mask.style.left
 			= (100.0 * parseFloat(values[0]) / (info.stopTime - info.startTime)) + "%";
 		range_mask.style.width
