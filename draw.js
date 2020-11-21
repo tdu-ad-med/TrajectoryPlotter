@@ -24,7 +24,14 @@ const loadSQL = async (file) => {
 		info = getInfo(database);
 		if (Object.keys(info).length === 0) return 1;
 
-		draw();
+		// 範囲選択をするスライドバーの範囲更新
+		document.getElementById('slider').noUiSlider.updateOptions({
+			range: { 'min': info.startTime, 'max': info.stopTime },
+			start: [ info.startTime, info.stopTime ]
+		}, false);
+
+		// 描画
+		draw(info.startTime, info.stopTime);
 
 		return 0;
 	}
@@ -104,9 +111,8 @@ const getInfo = (database) => {
 	};
 };
 
-const draw = () => {
+const draw = (startTime, stopTime) => {
 	if (database === null) return;
-	if (Object.keys(info).length === 0) return;
 
 	// canvasのelementを取得
 	const canvas = document.getElementById("plot-canvas");
@@ -124,7 +130,7 @@ const draw = () => {
 	const frameRangeStatement = database.prepare(
 		"SELECT min(frame), max(frame) FROM timestamp WHERE $start <= timestamp AND timestamp <= $stop"
 	);
-	frameRange = frameRangeStatement.get({"$start": info.startTime, "$stop": info.stopTime});
+	frameRange = frameRangeStatement.get({"$start": startTime, "$stop": stopTime});
 	const startFrame = frameRange[0];
 	const stopFrame =  frameRange[1];
 

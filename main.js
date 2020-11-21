@@ -37,4 +37,19 @@ document.addEventListener("DOMContentLoaded", () => {
 		const files = e.dataTransfer.files;
 		openFile(files);
 	}, false);
+
+	// 範囲選択をするスライドバーの設置
+	const slider = document.getElementById('slider');
+	noUiSlider.create(slider, {
+		range: {
+			'min': 0,
+			'max': 1
+		},
+		start: [0, 1],
+		step: 1,
+		connect: true
+	});
+	slider.noUiSlider.on('set.one', (values, handle) => {
+		draw(parseInt(values[0]), parseInt(values[1]));
+	});
 }, false);
