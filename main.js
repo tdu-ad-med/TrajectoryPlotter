@@ -3,6 +3,7 @@ const openFile = (files) => {
 	document.getElementById("error").innerHTML = "";
 	document.getElementById("upload-box-main").style.visibility = "hidden";
 	document.getElementById("upload-box-loading").style.visibility = "visible";
+	document.getElementById("draw-loading").style.visibility = "visible";
 
 	setTimeout(async () => {
 		if (files.length === 1) {
@@ -49,7 +50,15 @@ document.addEventListener("DOMContentLoaded", () => {
 		step: 1,
 		connect: true
 	});
+
+	// スライドバーが更新されたとき
 	slider.noUiSlider.on('set.one', (values, handle) => {
-		draw(parseInt(values[0]), parseInt(values[1]));
+		// ローディングのぐるぐるを表示する
+		document.getElementById("draw-loading").style.visibility = "visible";
+
+		// 再描画
+		setTimeout(() => {
+			draw(parseInt(values[0]), parseInt(values[1]));
+		}, 0);
 	});
 }, false);

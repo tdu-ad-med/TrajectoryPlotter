@@ -26,7 +26,12 @@
 	<div class="main">
 		<h1 style="margin-top: min(4vw, 60px); margin-bottom: min(4vw, 60px);">Trajectory Plotter</h1>
 		<div id="plot" style="margin-top: min(4vw, 60px); margin-bottom: min(4vw, 60px); display: none;">
-			<canvas id="plot-canvas" width="1280" height="720" style="margin-bottom: min(1vw, 10px);"></canvas>
+			<div style="position:relative;">
+				<canvas id="plot-canvas" width="1280" height="720" style="margin-bottom: min(1vw, 10px);"></canvas>
+				<div style="position:absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1;">
+					<img src="./loading.gif" id="draw-loading">
+				</div>
+			</div>
 			<canvas id="range-canvas" width="1280" height="160"></canvas>
 			<div id="slider"></div>
 		</div>

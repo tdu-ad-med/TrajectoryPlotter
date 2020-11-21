@@ -221,6 +221,9 @@ const draw = (startTime, stopTime) => {
 
 	// 最後の人の軌跡の描画を終了する
 	context.stroke();
+
+	// ローディングのぐるぐるを消す
+	document.getElementById("draw-loading").style.visibility = "hidden";
 };
 
 const hsvToRgb = (h, s, v) => {
