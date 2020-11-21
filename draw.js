@@ -40,11 +40,11 @@ const getInfo = (database) => {
 	// テーブルが存在しているかを確認
 	try {
 		const tableCount = database.exec(
-			"SELECT count(*) FROM sqlite_master WHERE name IN('timestamp', 'trajectory')"
+			"SELECT count(*) FROM sqlite_master WHERE name IN('timestamp', 'trajectory', 'people')"
 		);
-		if (2 !== tableCount[0].values[0][0]) {
+		if (3 !== tableCount[0].values[0][0]) {
 			document.getElementById("error").innerHTML
-				= "このsqlファイルにはtimestampテーブルもしくはtrajectoryテーブルが存在していません。";
+				= "このsqlファイルにはpeopleテーブル、timestampテーブル、trajectoryテーブルのいずれかが存在していません。";
 			return {};
 		}
 	}
@@ -63,7 +63,7 @@ const getInfo = (database) => {
 	// 各フレームの人口密度を取得してcanvasに描画
 	const maxPeople = database.exec("SELECT max(people_count) FROM (SELECT count(people) AS people_count FROM trajectory GROUP BY frame);")[0].values[0][0];
 	const populationDensityStatement = database.prepare(
-		"SELECT trajectory.frame, timestamp, count(people) FROM trajectory INNER JOIN timestamp ON trajectory.frame=timestamp.frame GROUP BY trajectory.frame;"
+		"SELECT people.frame, timestamp, count(people) FROM people INNER JOIN timestamp ON people.frame=timestamp.frame GROUP BY people.frame;"
 	);
 	const rangeCanvas = document.getElementById("range-canvas");
 	const rangeContext = rangeCanvas.getContext('2d');
