@@ -41,6 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// 範囲選択をするスライドバーの設置
 	const slider = document.getElementById('slider');
+	const range_text = document.getElementById('range-text');
+	const range_mask = document.getElementById('range-mask');
 	noUiSlider.create(slider, {
 		range: {
 			'min': 0,
@@ -51,7 +53,17 @@ document.addEventListener("DOMContentLoaded", () => {
 		connect: true
 	});
 
-	// スライドバーが更新されたとき
+	// スライドバーが更新されたとき(変更中)
+	slider.noUiSlider.on('update.one', (values, handle) => {
+		range_text.innerHTML
+			= `開始時間 : ${parseFloat(values[0]) / 1000.0} 秒<br>終了時間 : ${parseFloat(values[1])	 / 1000.0} 秒`;
+		range_mask.style.left
+			= (100.0 * parseFloat(values[0]) / (info.stopTime - info.startTime)) + "%";
+		range_mask.style.width
+			= (100.0 * (parseFloat(values[1]) - parseFloat(values[0])) / (info.stopTime - info.startTime)) + "%";
+	});
+
+	// スライドバーが更新されたとき(変更完了後)
 	slider.noUiSlider.on('set.one', (values, handle) => {
 		// ローディングのぐるぐるを表示する
 		document.getElementById("draw-loading").style.visibility = "visible";

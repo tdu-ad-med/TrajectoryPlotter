@@ -32,8 +32,12 @@
 					<img src="./loading.gif" id="draw-loading">
 				</div>
 			</div>
-			<canvas id="range-canvas" width="1280" height="160"></canvas>
-			<div id="slider"></div>
+			<div style="position:relative;">
+				<canvas id="range-canvas" width="1280" height="160"></canvas>
+				<div id="range-mask" style="position:absolute; left: 0%; top: 0%; width: 100%; height: 100%; background: #00707D50;"></div>
+			</div>
+			<div id="slider" style="width: 100%; margin-top: min(1vw, 10px);"></div>
+			<p id="range-text" style="text-align: left;"></p>
 		</div>
 		<div id="upload">
 			<div class="upload-box" id="upload-box" style="position:relative;">

@@ -75,11 +75,8 @@ const getInfo = (database) => {
 	const rangeCanvas = document.getElementById("range-canvas");
 	const rangeContext = rangeCanvas.getContext('2d');
 	rangeContext.globalCompositeOperation = "source-over";
-	rangeContext.fillStyle = "#000000FF";
-	rangeContext.fillRect(0, 0, rangeCanvas.width, rangeCanvas.height);
-	rangeContext.lineWidth = 3;
-	rangeContext.globalCompositeOperation = "lighter";
-	rangeContext.strokeStyle = "#FFFFFF30";
+	rangeContext.clearRect(0, 0, rangeCanvas.width, rangeCanvas.height);
+	rangeContext.strokeStyle = "#303030C0";
 	let people = 0, frame = -1, x = 0, y = 0, y_bottom = rangeCanvas.height - 1;
 	rangeContext.beginPath();
 	rangeContext.moveTo(0, y_bottom);
