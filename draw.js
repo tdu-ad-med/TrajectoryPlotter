@@ -241,9 +241,8 @@ const hsvToRgb = (h, s, v) => {
 };
 
 const timeFormatter = (time) => {
-	millisec = (Math.floor(time) - (Math.floor(time / 1000.0) * 1000.0));
 	sec = (Math.floor(time / 1000.0) - ((Math.floor(time / 60000.0) * 60.0)));
 	min = (Math.floor(time / 60000.0) - ((Math.floor(time / 3600000.0) * 60.0)));
 	hour = Math.floor(time / 3600000.0);
-	return `${("00"+hour).slice(-2)}:${("00"+min).slice(-2)}:${("00"+sec).slice(-2)}:${("0000"+millisec).slice(-4)}`;
+	return `${("00"+hour).slice(-2)}:${("00"+min).slice(-2)}:${("00"+sec).slice(-2)}`;
 };
