@@ -132,13 +132,25 @@ const draw = (startTime, stopTime) => {
 	const stopFrame =  frameRange[1];
 
 	// 描画するフレームの範囲内の全ての軌跡情報を取得する
+	const joint_avg = axis => ("((" +
+		[...Array(25).keys()].map(num=>`(joint${num}${axis}*joint${num}confidence)`).join("+") + ")/(" +
+		[...Array(25).keys()].map(num=>`joint${num}confidence`).join("+") +
+	"))");
 	const statement = database.prepare(
-		"SELECT * FROM trajectory WHERE $start <= frame AND frame <= $stop ORDER BY people ASC, frame ASC"
+		"SELECT frame, people, " +
+		`${joint_avg("x")} AS x, ${joint_avg("y")} AS y ` +
+		"FROM people_with_tracking WHERE $start <= frame AND frame <= $stop " +
+		"ORDER BY people ASC, frame ASC"
 	);
 	statement.bind({"$start": startFrame, "$stop": stopFrame});
 
 	// 軌跡の取りうる範囲を取得
-	const trajectoryRangeTable = database.exec("SELECT min(x), min(y), max(x), max(y) FROM trajectory");
+	const trajectoryRangeTable = database.exec(
+		"SELECT " +
+		`min(${joint_avg("x")}), min(${joint_avg("y")}), ` +
+		`max(${joint_avg("x")}), max(${joint_avg("y")}) ` +
+		`FROM people_with_tracking`
+	);
 	const trajectoryRangeArray = trajectoryRangeTable[0].values[0];
 	const trajectoryRange = {
 		"left"  : trajectoryRangeArray[0],
