@@ -62,13 +62,27 @@ const getInfo = (database) => {
 		return {};
 	}
 
+	// 処理速度向上のため、軌跡のテーブルを作成する
+	database.exec("DROP TABLE IF EXISTS trajectory");
+	const joint_avg = axis => ("((" +
+		[...Array(25).keys()].map(num=>`(joint${num}${axis}*joint${num}confidence)`).join("+") + ")/(" +
+		[...Array(25).keys()].map(num=>`joint${num}confidence`).join("+") +
+	"))");
+	const statement = database.exec(
+		"CREATE TABLE trajectory AS SELECT frame, people, " +
+		`${joint_avg("x")} AS x, ${joint_avg("y")} AS y ` +
+		"FROM people_with_tracking ORDER BY people ASC, frame ASC"
+	);
+
 	// 動画の始まりと終わりの時間を取得
 	const timeRangeTable = database.exec("SELECT min(timestamp), max(timestamp) FROM timestamp");
 	const startTime = timeRangeTable[0].values[0][0];
 	const stopTime = timeRangeTable[0].values[0][1];
 
 	// 各フレームの人口密度を取得してcanvasに描画
-	const maxPeople = database.exec("SELECT max(people_count) FROM (SELECT count(people) AS people_count FROM trajectory GROUP BY frame);")[0].values[0][0];
+	const maxPeople = database.exec(
+		"SELECT max(people_count) FROM (SELECT count(people) AS people_count FROM people GROUP BY frame);"
+	)[0].values[0][0];
 	const populationDensityStatement = database.prepare(
 		"SELECT people.frame, timestamp, count(people) FROM people INNER JOIN timestamp ON people.frame=timestamp.frame GROUP BY people.frame;"
 	);
@@ -132,25 +146,13 @@ const draw = (startTime, stopTime) => {
 	const stopFrame =  frameRange[1];
 
 	// 描画するフレームの範囲内の全ての軌跡情報を取得する
-	const joint_avg = axis => ("((" +
-		[...Array(25).keys()].map(num=>`(joint${num}${axis}*joint${num}confidence)`).join("+") + ")/(" +
-		[...Array(25).keys()].map(num=>`joint${num}confidence`).join("+") +
-	"))");
 	const statement = database.prepare(
-		"SELECT frame, people, " +
-		`${joint_avg("x")} AS x, ${joint_avg("y")} AS y ` +
-		"FROM people_with_tracking WHERE $start <= frame AND frame <= $stop " +
-		"ORDER BY people ASC, frame ASC"
+		"SELECT * FROM trajectory WHERE $start <= frame AND frame <= $stop ORDER BY people ASC, frame ASC"
 	);
 	statement.bind({"$start": startFrame, "$stop": stopFrame});
 
 	// 軌跡の取りうる範囲を取得
-	const trajectoryRangeTable = database.exec(
-		"SELECT " +
-		`min(${joint_avg("x")}), min(${joint_avg("y")}), ` +
-		`max(${joint_avg("x")}), max(${joint_avg("y")}) ` +
-		`FROM people_with_tracking`
-	);
+	const trajectoryRangeTable = database.exec("SELECT min(x), min(y), max(x), max(y) FROM trajectory");
 	const trajectoryRangeArray = trajectoryRangeTable[0].values[0];
 	const trajectoryRange = {
 		"left"  : trajectoryRangeArray[0],
