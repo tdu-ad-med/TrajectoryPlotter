@@ -62,6 +62,7 @@ const getInfo = (database) => {
 		return {};
 	}
 
+	/* ここは歪み補正と射影変換がされていない軌跡を表示するときにコメントを外す
 	// 処理速度向上のため、軌跡のテーブルを作成する
 	database.exec("DROP TABLE IF EXISTS trajectory");
 	const joint_avg = axis => ("((" +
@@ -73,6 +74,7 @@ const getInfo = (database) => {
 		`${joint_avg("x")} AS x, ${joint_avg("y")} AS y ` +
 		"FROM people_with_tracking ORDER BY people ASC, frame ASC"
 	);
+	*/
 
 	// 動画の始まりと終わりの時間を取得
 	const timeRangeTable = database.exec("SELECT min(timestamp), max(timestamp) FROM timestamp");
