@@ -62,8 +62,7 @@ const getInfo = (database) => {
 		return {};
 	}
 
-	/* ここは歪み補正と射影変換がされていない軌跡を表示するときにコメントを外す
-	// 処理速度向上のため、軌跡のテーブルを作成する
+	/* 軌跡の再計算を行う (歪み補正なし)
 	database.exec("DROP TABLE IF EXISTS trajectory");
 	const joint_avg = axis => ("((" +
 		[...Array(25).keys()].map(num=>`(joint${num}${axis}*joint${num}confidence)`).join("+") + ")/(" +
@@ -76,6 +75,35 @@ const getInfo = (database) => {
 	);
 	*/
 
+	/* 軌跡の再計算を行う (歪み補正あり)
+	database.exec("DROP TABLE IF EXISTS trajectory");
+	const joint_avg = axis => ("((" +
+		[...Array(25).keys()].map(num=>`(joint${num}${axis}*joint${num}confidence)`).join("+") + ")/(" +
+		[...Array(25).keys()].map(num=>`joint${num}confidence`).join("+") +
+	"))");
+	const trajectoryGetStatement = database.prepare(
+		"SELECT frame, people, " +
+		`${joint_avg("x")} AS x, ${joint_avg("y")} AS y ` +
+		"FROM people_with_tracking ORDER BY people ASC, frame ASC"
+	);
+	database.exec("CREATE TABLE trajectory (frame INTEGER, people INTEGER, x REAL, y REAL)");
+	database.exec("CREATE INDEX idx_frame_on_trajectory2 ON trajectory(frame)");
+	database.exec("CREATE INDEX idx_people_on_trajectory2 ON trajectory(people)");
+	database.exec("CREATE UNIQUE INDEX idx_frame_and_people_on_trajectory2 ON trajectory(frame, people)");
+	const trajectoryUpdateStatement = database.prepare("INSERT INTO trajectory VALUES ($frame, $people, $x, $y)");
+	while (trajectoryGetStatement.step()) {
+		const value = trajectoryGetStatement.get();
+		const xy = undistortPoints(
+			[parseFloat(value[2]), parseFloat(value[3])],
+			[1222.78852772764, 1214.377234799321], [967.8020317677116, 569.3667691760459],
+			[-0.08809225804249926, 0.03839093574614055, -0.060501971675431955, 0.033162385302275665],
+			[1280.0 / 1920.0, 1280.0 / 1920.0], 0.5
+		);
+		trajectoryUpdateStatement.bind({"$frame": value[0], "$people": value[1], "$x": xy[0], "$y": xy[1]});
+		trajectoryUpdateStatement.step();
+	}
+	*/
+
 	// 動画の始まりと終わりの時間を取得
 	const timeRangeTable = database.exec("SELECT min(timestamp), max(timestamp) FROM timestamp");
 	const startTime = timeRangeTable[0].values[0][0];
@@ -83,10 +111,10 @@ const getInfo = (database) => {
 
 	// 各フレームの人口密度を取得してcanvasに描画
 	const maxPeople = database.exec(
-		"SELECT max(people_count) FROM (SELECT count(people) AS people_count FROM people GROUP BY frame);"
+		"SELECT max(people_count) FROM (SELECT count(people) AS people_count FROM people GROUP BY frame)"
 	)[0].values[0][0];
 	const populationDensityStatement = database.prepare(
-		"SELECT people.frame, timestamp, count(people) FROM people INNER JOIN timestamp ON people.frame=timestamp.frame GROUP BY people.frame;"
+		"SELECT people.frame, timestamp, count(people) FROM people INNER JOIN timestamp ON people.frame=timestamp.frame GROUP BY people.frame"
 	);
 	const rangeCanvas = document.getElementById("range-canvas");
 	const rangeContext = rangeCanvas.getContext('2d');
