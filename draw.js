@@ -69,7 +69,6 @@ const getInfo = (database) => {
 		return {};
 	}
 
-	/*
 	// 軌跡の再計算を行う (歪み補正なし)
 	database.exec("DROP TABLE IF EXISTS trajectory");
 	const joint_avg = axis => ("((" +
@@ -81,7 +80,6 @@ const getInfo = (database) => {
 		`${joint_avg("x")} AS x, ${joint_avg("y")} AS y ` +
 		"FROM people_with_tracking ORDER BY people ASC, frame ASC"
 	);
-	*/
 
 	// 動画の始まりと終わりの時間を取得
 	const timeRangeTable = database.exec("SELECT min(timestamp), max(timestamp) FROM timestamp");
@@ -142,6 +140,82 @@ const draw = (startTime, stopTime) => {
 	graphics.fill(0, 0, 0);
 	graphics.rect(0, 0, canvas.width, canvas.height);
 
+	// 歪み補正用のシェーダを読み込み
+	const f = [1222.78852772764, 1214.377234799321];
+	const c = [967.8020317677116, 569.3667691760459];
+	const k = [-0.08809225804249926, 0.03839093574614055, -0.060501971675431955, 0.033162385302275665];
+	const input_scale = (1280.0 / 1920.0);
+	const output_scale = 0.5;
+	const shader = graphics.createShader();
+	shader.loadShader(
+`
+	precision highp float;
+	attribute vec3 position;
+	attribute vec2 uv;
+	attribute vec4 color;
+	uniform mat4 matrix;
+	varying vec2 v_uv;
+	varying vec4 v_color;
+	const float PI = 3.14159265359;
+	const float EPS = 1e-4;
+
+	vec2 undistortPoints(vec2 src, vec2 f, vec2 c, vec4 k, vec2 input_scale, float output_scale) {
+		f *= input_scale; c *= input_scale;
+		vec2 pw = (src - c) / f;
+
+		float theta_d = min(max(-PI / 2., length(pw)), PI / 2.);
+
+		bool converged = false;
+		float theta = theta_d;
+
+		float scale = 0.0;
+
+		if (abs(theta_d) > EPS) {
+			for (int i = 0; i < 10; i++) {
+				float theta2 = theta * theta;
+				float theta4 = theta2 * theta2;
+				float theta6 = theta4 * theta2;
+				float theta8 = theta6 * theta2;
+				float k0_theta2 = k.x * theta2;
+				float k1_theta4 = k.y * theta4;
+				float k2_theta6 = k.z * theta6;
+				float k3_theta8 = k.w * theta8;
+				float theta_fix =
+					(theta * (1. + k0_theta2 + k1_theta4 + k2_theta6 + k3_theta8) - theta_d) /
+					(1. + 3. * k0_theta2 + 5. * k1_theta4 + 7. * k2_theta6 + 9. * k3_theta8);
+				theta = theta - theta_fix;
+				if (abs(theta_fix) < EPS) {
+					converged = true;
+					break;
+				}
+			}
+			scale = tan(theta) / theta_d;
+		}
+		else { converged = true; }
+		bool theta_flipped = ((theta_d < 0. && theta > 0.) || (theta_d > 0. && theta < 0.));
+		if (converged && !theta_flipped) {
+			vec2 pu = pw * scale * f * output_scale + c;
+			return pu;
+		}
+		else { return vec2(-1000000.0, -1000000.0); }
+	}
+
+	void main(void) {
+		v_uv = uv;
+		v_color = color;
+		vec2 pos = undistortPoints(
+			position.xy,
+			vec2(${f[0]}, ${f[1]}), vec2(${c[0]}, ${c[1]}),
+			vec4(${k[0]}, ${k[1]}, ${k[2]}, ${k[3]}),
+			vec2(${input_scale}), ${output_scale}
+		);
+		gl_Position = matrix * vec4(pos, 0.0, 1.0);
+	}
+`
+		, shader.default_shader.fragment
+	);
+	graphics.shader(shader);
+
 	// 描画する時間の範囲からフレームの範囲を取得する
 	const frameRangeStatement = database.prepare(
 		"SELECT min(frame), max(frame) FROM timestamp WHERE $start <= timestamp AND timestamp <= $stop"
@@ -156,16 +230,6 @@ const draw = (startTime, stopTime) => {
 	);
 	statement.bind({"$start": startFrame, "$stop": stopFrame});
 
-	// 軌跡の取りうる範囲を取得
-	const trajectoryRangeTable = database.exec("SELECT min(x), min(y), max(x), max(y) FROM trajectory");
-	const trajectoryRangeArray = trajectoryRangeTable[0].values[0];
-	const trajectoryRange = {
-		"left"  : trajectoryRangeArray[0],
-		"top"   : trajectoryRangeArray[1],
-		"width" : trajectoryRangeArray[2] - trajectoryRangeArray[0],
-		"height": trajectoryRangeArray[3] - trajectoryRangeArray[1]
-	};
-
 	// 取得した軌跡のデータ数だけループする
 	let personID = -1;
 	let drawn = false;
@@ -173,41 +237,6 @@ const draw = (startTime, stopTime) => {
 		// 次の座標を取得
 		const value = statement.get();
 		const position = {"x": value[2], "y": value[3]};
-
-		// 画面のサイズに収まるように位置調整
-
-		// 軌跡の範囲のアスペクト比と画面のアスペクト比を求める
-		const trajectoryAspect = trajectoryRange.width / trajectoryRange.height;
-		const canvasAspect = canvas.width / canvas.height;
-
-		// 画面のサイズより軌跡の範囲のほうが横長の場合
-		if (trajectoryAspect > canvasAspect) {
-			// 横座標が0.0から1.0の間になるように拡大縮小
-			position.x = (position.x - trajectoryRange.left) / trajectoryRange.width;
-			position.y = (position.y - trajectoryRange.top) / trajectoryRange.width;
-
-			// 下に隙間ができるので、上下に均等に隙間ができるようにずらす
-			const bottom_gap = (1.0 / canvasAspect) - (1.0 / trajectoryAspect);
-			position.y += bottom_gap * 0.5;
-
-			// 横座標が0.0からcanvas.widthの間になるように拡大縮小
-			position.x *= canvas.width;
-			position.y *= canvas.width;
-		}
-		else {
-			// 縦座標が0.0から1.0の間になるように拡大縮小
-			position.x = (position.x - trajectoryRange.left) / trajectoryRange.height;
-			position.y = (position.y - trajectoryRange.top) / trajectoryRange.height;
-
-			// 右に隙間ができるので、左右に均等に隙間ができるようにずらす
-			const right_gap = canvasAspect - trajectoryAspect;
-			position.x += right_gap * 0.5;
-
-			// 縦座標が0.0からcanvas.heightの間になるように拡大縮小
-			position.x *= canvas.height;
-			position.y *= canvas.height;
-		}
-		
 
 		// 人のIDが変わった場合
 		if (personID !== value[1]) {
