@@ -73,4 +73,15 @@ document.addEventListener("DOMContentLoaded", () => {
 			draw(parseInt(values[0]), parseInt(values[1]));
 		}, 0);
 	});
+
+	// チェックボックスが変更されたとき
+	document.getElementById("transform").addEventListener("change", (event) => {
+		// ローディングのぐるぐるを表示する
+		document.getElementById("draw-loading").style.visibility = "visible";
+
+		// 再描画
+		setTimeout(() => {
+			draw(parseInt(slider.noUiSlider.get()[0]), parseInt(slider.noUiSlider.get()[1]));
+		}, 0);
+	}, false);
 }, false);

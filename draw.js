@@ -230,7 +230,7 @@ const draw = (startTime, stopTime) => {
 `
 		, shader.default_shader.fragment
 	);
-	graphics.shader(shader);
+	if (document.getElementById("transform").checked) graphics.shader(shader);
 
 	// 描画する時間の範囲からフレームの範囲を取得する
 	const frameRangeStatement = database.prepare(
