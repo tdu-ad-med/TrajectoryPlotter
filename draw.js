@@ -1,3 +1,10 @@
+/*
+
+軌跡の描画には自作のWebGLラッパーライブラリである「HydrangeaJS」を使用しています。
+HydrangeaJS : https://github.com/wakewakame/HydrangeaJS
+
+*/
+
 let sql = null, database = null, info = {};
 const loadSQL = async (file) => {
 	try {
@@ -62,7 +69,8 @@ const getInfo = (database) => {
 		return {};
 	}
 
-	/* 軌跡の再計算を行う (歪み補正なし)
+	/*
+	// 軌跡の再計算を行う (歪み補正なし)
 	database.exec("DROP TABLE IF EXISTS trajectory");
 	const joint_avg = axis => ("((" +
 		[...Array(25).keys()].map(num=>`(joint${num}${axis}*joint${num}confidence)`).join("+") + ")/(" +
@@ -73,35 +81,6 @@ const getInfo = (database) => {
 		`${joint_avg("x")} AS x, ${joint_avg("y")} AS y ` +
 		"FROM people_with_tracking ORDER BY people ASC, frame ASC"
 	);
-	*/
-
-	/* 軌跡の再計算を行う (歪み補正あり)
-	database.exec("DROP TABLE IF EXISTS trajectory");
-	const joint_avg = axis => ("((" +
-		[...Array(25).keys()].map(num=>`(joint${num}${axis}*joint${num}confidence)`).join("+") + ")/(" +
-		[...Array(25).keys()].map(num=>`joint${num}confidence`).join("+") +
-	"))");
-	const trajectoryGetStatement = database.prepare(
-		"SELECT frame, people, " +
-		`${joint_avg("x")} AS x, ${joint_avg("y")} AS y ` +
-		"FROM people_with_tracking ORDER BY people ASC, frame ASC"
-	);
-	database.exec("CREATE TABLE trajectory (frame INTEGER, people INTEGER, x REAL, y REAL)");
-	database.exec("CREATE INDEX idx_frame_on_trajectory2 ON trajectory(frame)");
-	database.exec("CREATE INDEX idx_people_on_trajectory2 ON trajectory(people)");
-	database.exec("CREATE UNIQUE INDEX idx_frame_and_people_on_trajectory2 ON trajectory(frame, people)");
-	const trajectoryUpdateStatement = database.prepare("INSERT INTO trajectory VALUES ($frame, $people, $x, $y)");
-	while (trajectoryGetStatement.step()) {
-		const value = trajectoryGetStatement.get();
-		const xy = undistortPoints(
-			[parseFloat(value[2]), parseFloat(value[3])],
-			[1222.78852772764, 1214.377234799321], [967.8020317677116, 569.3667691760459],
-			[-0.08809225804249926, 0.03839093574614055, -0.060501971675431955, 0.033162385302275665],
-			[1280.0 / 1920.0, 1280.0 / 1920.0], 0.5
-		);
-		trajectoryUpdateStatement.bind({"$frame": value[0], "$people": value[1], "$x": xy[0], "$y": xy[1]});
-		trajectoryUpdateStatement.step();
-	}
 	*/
 
 	// 動画の始まりと終わりの時間を取得
@@ -157,15 +136,11 @@ const draw = (startTime, stopTime) => {
 
 	// canvasのelementを取得
 	const canvas = document.getElementById("plot-canvas");
-	const context = canvas.getContext('2d');
+	const graphics = new HydrangeaJS.WebGL.Graphics(canvas);
 
 	// 背景を黒に、線の太さは3pxに設定する
-	context.globalCompositeOperation = "source-over";
-	context.fillStyle = "#000000FF";
-	context.fillRect(0, 0, canvas.width, canvas.height);
-	context.lineWidth = 3;
-	context.lineJoin = "bevel";
-	context.globalCompositeOperation = "lighter";
+	graphics.fill(0, 0, 0);
+	graphics.rect(0, 0, canvas.width, canvas.height);
 
 	// 描画する時間の範囲からフレームの範囲を取得する
 	const frameRangeStatement = database.prepare(
@@ -193,6 +168,7 @@ const draw = (startTime, stopTime) => {
 
 	// 取得した軌跡のデータ数だけループする
 	let personID = -1;
+	let drawn = false;
 	while (statement.step()) {
 		// 次の座標を取得
 		const value = statement.get();
@@ -236,7 +212,10 @@ const draw = (startTime, stopTime) => {
 		// 人のIDが変わった場合
 		if (personID !== value[1]) {
 			// 前の人の軌跡の描画を終了する
-			if (personID >= 0) context.stroke();
+			if (personID >= 0) {
+				graphics.gshape.endWeightShape();
+				graphics.shape(graphics.gshape);
+			}
 
 			// IDの記憶
 			personID = value[1];
@@ -245,32 +224,37 @@ const draw = (startTime, stopTime) => {
 			let h = parseFloat(personID) * 0.111;
 			h = h - Math.floor(h);
 			const color = hsvToRgb(h, 0.5, 1.0);
-			context.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.1)`;
+			graphics.gshape.color(color.r, color.g, color.b, 0.05);
 
 			// 新たに軌跡の描画を開始する
-			context.beginPath();
+			graphics.gshape.beginWeightShape(1.0);
+			drawn = true;
 
 			// 軌跡の始点を追加
-			context.moveTo(position.x , position.y);
+			graphics.gshape.vertex(position.x , position.y, 0);
 
 			continue;
 		}
 
 		// 軌跡の追加
-		context.lineTo(position.x , position.y);
+		graphics.gshape.vertex(position.x , position.y, 0);
 	}
 
 	// 最後の人の軌跡の描画を終了する
-	context.stroke();
+	if (drawn) {
+		graphics.gshape.endWeightShape();
+		graphics.shape(graphics.gshape);
+		graphics.render();
+	}
 
 	// ローディングのぐるぐるを消す
 	document.getElementById("draw-loading").style.visibility = "hidden";
 };
 
 const hsvToRgb = (h, s, v) => {
-	let r = v * 255.0;
-	let g = v * 255.0;
-	let b = v * 255.0;
+	let r = v;
+	let g = v;
+	let b = v;
 	if (s <= 0.0) return {"r": r, "g": g, "b": b};
 	h *= 6.0;
 	const i = Math.floor(h);
