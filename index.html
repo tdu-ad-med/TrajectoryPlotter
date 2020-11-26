@@ -20,6 +20,7 @@
 
 	<!-- メインプログラム -->
 	<script src="hydrangea.js"></script>
+	<script src="math.js"></script>
 	<script src="draw.js"></script>
 	<script src="main.js"></script>
 </head>
@@ -28,40 +29,103 @@
 		<h1 style="margin-top: min(4vw, 60px); margin-bottom: min(4vw, 60px);">Trajectory Plotter</h1>
 		<div id="plot" style="margin-top: min(4vw, 60px); margin-bottom: min(4vw, 60px); display: none;">
 			<div style="position:relative;">
-				<canvas id="plot-canvas" width="1280" height="720" style="margin-bottom: min(1vw, 10px);"></canvas>
+				<canvas id="plot_canvas" width="1280" height="720" style="margin-bottom: min(1vw, 10px);"></canvas>
 				<div style="position:absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1;">
-					<img src="./loading.gif" id="draw-loading">
+					<img src="./loading.gif" style="visibility: hidden;" class="loading">
 				</div>
 			</div>
 			<div style="position:relative;">
-				<canvas id="range-canvas" width="1280" height="160"></canvas>
-				<div id="range-mask" style="position:absolute; left: 0%; top: 0%; width: 100%; height: 100%; background: #00707D50;"></div>
+				<canvas id="range_canvas" width="1280" height="160"></canvas>
+				<div id="range_mask" style="position:absolute; left: 0%; top: 0%; width: 100%; height: 100%; background: #00707D50;"></div>
 			</div>
 			<div id="slider" style="width: 100%; margin-top: min(1vw, 10px);"></div>
-			<p id="range-text" style="text-align: left;"></p>
-			<p style="text-align: left; font-size: min(2.5vw, 15px);">
-				<input type="checkbox" id="transform"> 上から見たように変換する
-			</p>
+			<p id="range_text" style="text-align: left;"></p>
+			<p style="color: #F00; text-align: left;" class="error"></p>
+			<div style="text-align: left;">
+				<h3 style="margin-top: min(7.0vw, 42px);">パラメータをプリセットから読み込む</h3>
+				<div style="margin-left: min(5.0vw, 30px);">
+					<input type="button" value="カメラ1" class="preset_param">
+					<input type="button" value="カメラ2" class="preset_param">
+					<input type="button" value="カメラ3" class="preset_param">
+					<input type="button" value="カメラ4" class="preset_param">
+				</div>
+				<h3 style="margin-top: min(7.0vw, 42px);">基本設定</h3>
+				<div style="margin-left: min(5.0vw, 30px); height: 0%;">
+					<p>
+						動画撮影時の解像度: 
+						<input type="number" id="input_width" value="1920"> x <input type="number" id="input_height" value="1080">
+					</p>
+					<p>
+						出力画像の解像度: 
+						<input type="number" id="output_width" value="1920"> x <input type="number" id="output_height" value="1080">
+					</p>
+				</div>
+				<h3 style="margin-top: min(7.0vw, 42px);">詳細設定</h3>
+				<div style="margin-left: min(5.0vw, 30px);">
+					<p>背景画像: <input type="file" id="background-image"></p>
+					<p>線の透明度: <input type="number" id="line_transparent" value="0.1"> %</p>
+					<p>線の太さ: <input type="number" id="line_weight" value="1.0"> px</p>
+				</div>
+				<h3 style="margin-top: min(7.0vw, 42px);">
+					歪み補正を行う
+					<input type="checkbox" id="enable_correction">
+				</h3>
+				<div style="margin-left: min(5.0vw, 30px); display: none;" id="correction_param">
+					<p>
+						カメラキャリブレーション時の撮影解像度: 
+						<input type="number" id="calib_width" value="1920"> x <input type="number" id="calib_height" value="1080">
+					</p>
+					<p>
+						カメラ行列の焦点距離(fx, fy): 
+						( <input type="number" id="fx" value="1000.0"> px , <input type="number" id="fy" value="1000.0"> px )
+					</p>
+					<p>
+						カメラ行列の主点(cx, cy): 
+						( <input type="number" id="cx" value="960.0"> px , <input type="number" id="cy" value="540.0"> px )
+					</p>
+					<p>カメラレンズの半径方向の歪み係数(k1): <input type="number" id="k1" value="0.0"></p>
+					<p>カメラレンズの半径方向の歪み係数(k2): <input type="number" id="k2" value="0.0"></p>
+					<p>カメラレンズの半径方向の歪み係数(k3): <input type="number" id="k3" value="0.0"></p>
+					<p>カメラレンズの半径方向の歪み係数(k4): <input type="number" id="k4" value="0.0"></p>
+				</div>
+				<h3 style="margin-top: min(7.0vw, 42px);">
+					射影変換を行う
+					<input type="checkbox" id="enable_transform">
+				</h3>
+				<div style="margin-left: min(5.0vw, 30px); display: none;" id="transform_param">
+					<p>1点目: ( <input type="number" id="p1_x" value="0"> px , <input type="number" id="p1_y" value="0"> px )</p>
+					<p>2点目: ( <input type="number" id="p2_x" value="1920"> px , <input type="number" id="p2_y" value="0"> px )</p>
+					<p>3点目: ( <input type="number" id="p3_x" value="1920"> px , <input type="number" id="p3_y" value="1080"> px )</p>
+					<p>4点目: ( <input type="number" id="p4_x" value="0"> px , <input type="number" id="p4_y" value="1080"> px )</p>
+					<p>現実での1点目から2点目までの距離: <input type="number" id="p1_p2_distance" value="1.0"> m</p>
+					<p>現実での2点目から3点目までの距離: <input type="number" id="p2_p3_distance" value="1.0"> m</p>
+					<p>拡大率: <input type="number" id="scale" value="0.5"> %</p>
+					<p>平行移動: ( <input type="number" id="offset_x" value="0.0"> px , <input type="number" id="offset_y" value="0.0"> px )</p>
+					<p>4点の範囲に線を引く: <input type="checkbox" id="draw_border" checked="checked"></p>
+					<p>射影変換は行わず、4点の範囲の確認のみを行う: <input type="checkbox" id="only_preview"></p>
+				</div>
+				<input type="button" value="適応" id="apply_param" style="margin-top: min(7.0vw, 42px);">
+			</div>
 		</div>
 		<div id="upload">
-			<div class="upload-box" id="upload-box" style="position:relative;">
-				<div style="visibility: visible;" id="upload-box-main">
+			<div class="upload-box" id="upload_box" style="position:relative;">
+				<div style="visibility: visible;" id="upload_box_main">
 					<h2 style="margin-top: min(6vw, 30px);">ファイルを<br>ここにドロップ</h2>
 					<h3 style="margin-top: min(6vw, 30px);" class="title-border">または</h3>
 					<div style="margin-top: min(10vw, 50px); margin-bottom: min(10vw, 50px)">
 						<label for="file-selector">
 							ファイルを選択
-							<input type="file" id="file-selector" style="display: none;">
+							<input type="file" id="file_selector" style="display: none;">
 						</label>
 					</div>
 				</div>
 				<div style="position:absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);">
-					<img src="./loading.gif" style="visibility: hidden;" id="upload-box-loading">
+					<img src="./loading.gif" style="visibility: hidden;" class="loading">
 				</div>
 			</div>
 			<p style="margin-top: min(6vw, 30px);">軌跡データが格納された.sqlite3ファイルを開いてください</p>
+			<p style="color: #F00; text-align: left;" class="error"></p>
 		</div>
-		<p style="color: #F00; text-align: left;" id="error"></p>
 	</div>
 </body>
 </html>

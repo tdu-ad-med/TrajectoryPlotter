@@ -58,3 +58,6 @@ canvas {
 	height: auto;
 	background: #F2F2F2;
 }
+input[type="number"] {
+	width: min(20vw, 100px);
+}
