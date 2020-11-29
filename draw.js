@@ -25,10 +25,10 @@ const Graph = class {
 				height : 1.0
 			},
 		};
-		const graphics = new HydrangeaJS.WebGL.Graphics(plot_canvas);
 		this.range_context = this.range_canvas.getContext('2d');
-
-		const shader =
+		this.graphics = new HydrangeaJS.WebGL.Graphics(plot_canvas);
+		this.shader = this.graphics.createShader();
+		this.shader.loadShader(
 `precision highp float;
 attribute vec3 position;
 attribute vec2 uv;
@@ -47,7 +47,7 @@ uniform mat3 t;
 const float PI = 3.14159265359;
 const float EPS = 1e-4;
 
-vec2 undistortPoints(vec2 src) {
+vec2 undistortPoints(vec2 src, vec2 f, vec2 c, vec2 input_scale, vec2 output_scale) {
 	f *= input_scale; c *= input_scale;
 	vec2 pw = (src - c) / f;
 
@@ -91,13 +91,15 @@ vec2 undistortPoints(vec2 src) {
 void main(void) {
 	v_uv = uv;
 	v_color = color;
-	vec2 pos = undistortPoints(position.xy);
+	vec2 pos = undistortPoints(position.xy, f, c, input_scale, output_scale);
 	pos = vec2(
 		(pos.x * t[0][0] + pos.y * t[1][0] + t[2][0]) / (pos.x * t[0][2] + pos.y * t[1][2] + t[2][2]),
 		(pos.x * t[0][1] + pos.y * t[1][1] + t[2][1]) / (pos.x * t[0][2] + pos.y * t[1][2] + t[2][2])
 	);
 	gl_Position = matrix * vec4(pos, 0.0, 1.0);
-}`;
+}`
+		, this.shader.default_shader.fragment);
+		this.graphics.shader(this.shader);
 	}
 	async open_file(file) {
 		try {
@@ -201,7 +203,89 @@ void main(void) {
 		}
 	}
 	draw(config) {
+		// 背景を黒に、線の太さは3pxに設定する
+		this.graphics.shader(this.graphics.shaders.normal);
+		this.graphics.fill(0, 0, 0, 1);
+		this.graphics.rect(0, 0, this.plot_canvas.width, this.plot_canvas.height);
 
+		/*
+		uniform vec2 f;
+		uniform vec2 c;
+		uniform vec4 k;
+		uniform vec2 input_scale;
+		uniform vec2 output_scale;
+		uniform mat3 t;
+		*/
+
+		
+		this.graphics.shader(this.shader);
+		this.shader.set("f", config.fx, config.fy);
+		this.shader.set("c", config.cx, config.cy);
+		this.shader.set("k", config.k1, config.k2, config.k3, config.k4);
+		this.shader.set("input_scale", config.input_scale_x, config.input_scale_y);
+		this.shader.set("output_scale", config.output_scale, config.output_scale);
+		this.shader.set("t", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+
+
+		// 描画する時間の範囲からフレームの範囲を取得する
+		const frameRangeStatement = this.database.prepare(
+			"SELECT min(frame), max(frame) FROM timestamp WHERE $start <= timestamp AND timestamp <= $stop"
+		);
+		const frameRange = frameRangeStatement.get({"$start": config.startTime, "$stop": config.stopTime});
+		const startFrame = frameRange[0];
+		const stopFrame =  frameRange[1];
+
+		// 描画するフレームの範囲内の全ての軌跡情報を取得する
+		const statement = this.database.prepare(
+			"SELECT * FROM trajectory WHERE $start <= frame AND frame <= $stop ORDER BY people ASC, frame ASC"
+		);
+		statement.bind({"$start": startFrame, "$stop": stopFrame});
+
+		// 取得した軌跡のデータ数だけループする
+		let personID = -1;
+		let drawn = false;
+		while (statement.step()) {
+			// 次の座標を取得
+			const value = statement.get();
+			const position = {"x": value[2], "y": value[3]};
+
+			// 人のIDが変わった場合
+			if (personID !== value[1]) {
+				// 前の人の軌跡の描画を終了する
+				if (personID >= 0) {
+					this.graphics.gshape.endWeightShape();
+					this.graphics.shape(this.graphics.gshape);
+				}
+
+				// IDの記憶
+				personID = value[1];
+
+				// 色の指定
+				let h = parseFloat(personID) * 0.111;
+				h = h - Math.floor(h);
+				const color = hsvToRgb(h, 0.5, 1.0);
+				this.graphics.gshape.color(color.r, color.g, color.b, 0.1);
+
+				// 新たに軌跡の描画を開始する
+				this.graphics.gshape.beginWeightShape(1.0);
+				drawn = true;
+
+				// 軌跡の始点を追加
+				this.graphics.gshape.vertex(position.x , position.y, 0);
+
+				continue;
+			}
+
+			// 軌跡の追加
+			this.graphics.gshape.vertex(position.x , position.y, 0);
+		}
+
+		// 最後の人の軌跡の描画を終了する
+		if (drawn) {
+			this.graphics.gshape.endWeightShape();
+			this.graphics.shape(this.graphics.gshape);
+			this.graphics.render();
+		}
 	}
 };
 
@@ -228,167 +312,7 @@ const draw = (startTime, stopTime) => {
 	const canvas = document.getElementById("plot-canvas");
 	const graphics = new HydrangeaJS.WebGL.Graphics(canvas);
 
-	// 背景を黒に、線の太さは3pxに設定する
-	graphics.fill(0, 0, 0);
-	graphics.rect(0, 0, canvas.width, canvas.height);
-
-	// 歪み補正用のシェーダを読み込み
-	const f = [1222.78852772764, 1214.377234799321];
-	const c = [967.8020317677116, 569.3667691760459];
-	const k = [-0.08809225804249926, 0.03839093574614055, -0.060501971675431955, 0.033162385302275665];
-	const input_scale = (1280.0 / 1920.0);
-	const output_scale = 0.5;
-	const p = getPerspectiveTransform(
-		[[598 , 246],
-		 [1047, 276],
-		 [1077, 624],
-		 [537 , 601]].map(src => undistortPoints(src, f, c, k, [input_scale, input_scale], output_scale)),
-		rect_scale(2.334, 1.800, canvas.width, canvas.height, 0.3)
-	);
-	const shader = graphics.createShader();
-	shader.loadShader(
-`
-	precision highp float;
-	attribute vec3 position;
-	attribute vec2 uv;
-	attribute vec4 color;
-	uniform mat4 matrix;
-	varying vec2 v_uv;
-	varying vec4 v_color;
-	const float PI = 3.14159265359;
-	const float EPS = 1e-4;
-
-	vec2 undistortPoints(vec2 src, vec2 f, vec2 c, vec4 k, vec2 input_scale, float output_scale) {
-		f *= input_scale; c *= input_scale;
-		vec2 pw = (src - c) / f;
-
-		float theta_d = min(max(-PI / 2., length(pw)), PI / 2.);
-
-		bool converged = false;
-		float theta = theta_d;
-
-		float scale = 0.0;
-
-		if (abs(theta_d) > EPS) {
-			for (int i = 0; i < 10; i++) {
-				float theta2 = theta * theta;
-				float theta4 = theta2 * theta2;
-				float theta6 = theta4 * theta2;
-				float theta8 = theta6 * theta2;
-				float k0_theta2 = k.x * theta2;
-				float k1_theta4 = k.y * theta4;
-				float k2_theta6 = k.z * theta6;
-				float k3_theta8 = k.w * theta8;
-				float theta_fix =
-					(theta * (1. + k0_theta2 + k1_theta4 + k2_theta6 + k3_theta8) - theta_d) /
-					(1. + 3. * k0_theta2 + 5. * k1_theta4 + 7. * k2_theta6 + 9. * k3_theta8);
-				theta = theta - theta_fix;
-				if (abs(theta_fix) < EPS) {
-					converged = true;
-					break;
-				}
-			}
-			scale = tan(theta) / theta_d;
-		}
-		else { converged = true; }
-		bool theta_flipped = ((theta_d < 0. && theta > 0.) || (theta_d > 0. && theta < 0.));
-		if (converged && !theta_flipped) {
-			vec2 pu = pw * scale * f * output_scale + c;
-			return pu;
-		}
-		else { return vec2(-1000000.0, -1000000.0); }
-	}
-
-	void main(void) {
-		v_uv = uv;
-		v_color = color;
-		vec2 pos = undistortPoints(
-			position.xy,
-			vec2(${f[0]}, ${f[1]}), vec2(${c[0]}, ${c[1]}),
-			vec4(${k[0]}, ${k[1]}, ${k[2]}, ${k[3]}),
-			vec2(${input_scale}), ${output_scale}
-		);
-		mat3 t = mat3(${p});
-		pos = vec2(
-			(pos.x * t[0][0] + pos.y * t[1][0] + t[2][0]) / (pos.x * t[0][2] + pos.y * t[1][2] + t[2][2]),
-			(pos.x * t[0][1] + pos.y * t[1][1] + t[2][1]) / (pos.x * t[0][2] + pos.y * t[1][2] + t[2][2])
-		);
-		gl_Position = matrix * vec4(pos, 0.0, 1.0);
-	}
-`
-		, shader.default_shader.fragment
-	);
-	if (document.getElementById("transform").checked) graphics.shader(shader);
-
-	// 描画する時間の範囲からフレームの範囲を取得する
-	const frameRangeStatement = database.prepare(
-		"SELECT min(frame), max(frame) FROM timestamp WHERE $start <= timestamp AND timestamp <= $stop"
-	);
-	frameRange = frameRangeStatement.get({"$start": startTime, "$stop": stopTime});
-	const startFrame = frameRange[0];
-	const stopFrame =  frameRange[1];
-
-	// 描画するフレームの範囲内の全ての軌跡情報を取得する
-	const statement = database.prepare(
-		"SELECT * FROM trajectory WHERE $start <= frame AND frame <= $stop ORDER BY people ASC, frame ASC"
-	);
-	statement.bind({"$start": startFrame, "$stop": stopFrame});
-
-	// 取得した軌跡のデータ数だけループする
-	let personID = -1;
-	let drawn = false;
-	while (statement.step()) {
-		// 次の座標を取得
-		const value = statement.get();
-		const position = {"x": value[2], "y": value[3]};
-
-		// 人のIDが変わった場合
-		if (personID !== value[1]) {
-			// 前の人の軌跡の描画を終了する
-			if (personID >= 0) {
-				graphics.gshape.endWeightShape();
-				graphics.shape(graphics.gshape);
-			}
-
-			// IDの記憶
-			personID = value[1];
-
-			// 色の指定
-			let h = parseFloat(personID) * 0.111;
-			h = h - Math.floor(h);
-			const color = hsvToRgb(h, 0.5, 1.0);
-			graphics.gshape.color(color.r, color.g, color.b, 0.1);
-
-			// 新たに軌跡の描画を開始する
-			graphics.gshape.beginWeightShape(1.0);
-			drawn = true;
-
-			// 軌跡の始点を追加
-			graphics.gshape.vertex(position.x , position.y, 0);
-
-			continue;
-		}
-
-		// 軌跡の追加
-		graphics.gshape.vertex(position.x , position.y, 0);
-	}
-
-	// 最後の人の軌跡の描画を終了する
-	if (drawn) {
-		graphics.gshape.endWeightShape();
-		graphics.shape(graphics.gshape);
-		graphics.render();
-	}
-
-	// 基準線の描画
-	graphics.gshape.color(1, 0, 0, 1);
-	graphics.gshape.beginWeightShape(2.0, true);
-	[[598 , 246],
-	 [1047, 276],
-	 [1077, 624],
-	 [537 , 601]].forEach(dst => graphics.gshape.vertex(dst[0] , dst[1], 0));
-	graphics.gshape.endWeightShape();
-	graphics.shape(graphics.gshape);
+	
 
 	// ローディングのぐるぐるを消す
 	document.getElementById("draw-loading").style.visibility = "hidden";

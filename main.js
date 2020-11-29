@@ -26,6 +26,7 @@ const UIControll = class {
 			upload_box_main: document.getElementById("upload_box_main"),
 			file_selector: document.getElementById("file_selector"),
 			error: Array.from(document.getElementsByClassName("error")),
+			apply_param: document.getElementById("apply_param"),
 		};
 
 		this.error = (message, e) => {
@@ -40,7 +41,7 @@ const UIControll = class {
 			input_height: document.getElementById("input_height"),
 			output_width: document.getElementById("output_width"),
 			output_height: document.getElementById("output_height"),
-			background: document.getElementById("background"),
+			background_image: document.getElementById("background_image"),
 			line_transparent: document.getElementById("line_transparent"),
 			line_weight: document.getElementById("line_weight"),
 			enable_correction: document.getElementById("enable_correction"),
@@ -54,6 +55,7 @@ const UIControll = class {
 			k2: document.getElementById("k2"),
 			k3: document.getElementById("k3"),
 			k4: document.getElementById("k4"),
+			calib_scale: document.getElementById("calib_scale"),
 			enable_transform: document.getElementById("enable_transform"),
 			p1_x: document.getElementById("p1_x"),
 			p1_y: document.getElementById("p1_y"),
@@ -65,12 +67,11 @@ const UIControll = class {
 			p4_y: document.getElementById("p4_y"),
 			p1_p2_distance: document.getElementById("p1_p2_distance"),
 			p2_p3_distance: document.getElementById("p2_p3_distance"),
-			scale: document.getElementById("scale"),
-			offset_x: document.getElementById("offset_x"),
-			offset_y: document.getElementById("offset_y"),
+			transform_scale: document.getElementById("transform_scale"),
+			transform_offset_x: document.getElementById("transform_offset_x"),
+			transform_offset_y: document.getElementById("transform_offset_y"),
 			draw_border: document.getElementById("draw_border"),
 			only_preview: document.getElementById("only_preview"),
-			apply_param: document.getElementById("apply_param"),
 		};
 
 		// sql.js の動作に必要な wasm を CDN から読み込む
@@ -133,6 +134,11 @@ const UIControll = class {
 		this.ui_elements.preset_param.forEach(elem => { elem.addEventListener("click", e => {
 			this.load_preset(elem.value);
 		}); });
+
+		// 適応ボタンが押されたとき
+		this.ui_elements.apply_param.addEventListener("click", (event) => {
+			this.draw();
+		});
 	}
 
 	open_file(files) {
@@ -150,14 +156,72 @@ const UIControll = class {
 				this.reflect_sql_info(this.graph.sql_info);
 				this.ui_elements.upload.style.display = "none";
 				this.ui_elements.plot.style.display = "block";
+				this.draw();
 			}
+			else {
+				// スタイルを元に戻す
+				this.ui_elements.upload_box_main.style.visibility = "visible";
+				this.ui_elements.loading.forEach(elem => { elem.style.visibility = "hidden"; });
+			}
+		}, 0);
+	}
+	draw() {
+		const params = this.param_elements;
+		const frameRange = this.ui_elements.slider.noUiSlider.get();
+		const config = {
+			// 基本設定
+			width: parseFloat(params.output_width.value),
+			height: parseFloat(params.output_height.value),
+			line_transparent: parseFloat(params.line_transparent.value),
+			line_weight: parseFloat(params.line_weight.value),
+			background_image: (1 === params.background_image.files.length) ? params.background_image.files[0] : null,
+			// 描画範囲
+			startTime: parseFloat(frameRange[0]),
+			stopTime: parseFloat(frameRange[1]),
+			// レンズの歪み補正
+			enable_correction: params.enable_correction.checked,
+			fx: parseFloat(params.fx.value),
+			fy: parseFloat(params.fy.value),
+			cx: parseFloat(params.cx.value),
+			cy: parseFloat(params.cy.value),
+			k1: parseFloat(params.k1.value),
+			k2: parseFloat(params.k2.value),
+			k3: parseFloat(params.k3.value),
+			k4: parseFloat(params.k4.value),
+			input_scale_x: parseFloat(params.input_width.value) / parseFloat(params.calib_width.value),
+			input_scale_y: parseFloat(params.input_height.value) / parseFloat(params.calib_height.value),
+			output_scale: parseFloat(params.calib_scale.value) * 0.01,
+			// 射影変換
+			enable_transform: params.enable_transform.checked,
+			p1_x: parseFloat(params.p1_x.value),
+			p1_y: parseFloat(params.p1_y.value),
+			p2_x: parseFloat(params.p2_x.value),
+			p2_y: parseFloat(params.p2_y.value),
+			p3_x: parseFloat(params.p3_x.value),
+			p3_y: parseFloat(params.p3_y.value),
+			p4_x: parseFloat(params.p4_x.value),
+			p4_y: parseFloat(params.p4_y.value),
+			p1_p2_distance: parseFloat(params.p1_p2_distance.value),
+			p2_p3_distance: parseFloat(params.p2_p3_distance.value),
+			transform_scale: parseFloat(params.transform_scale.value) * 0.01,
+			transform_offset_x: parseFloat(params.transform_offset_x.value),
+			transform_offset_y: parseFloat(params.transform_offset_y.value),
+			draw_border: params.draw_border.checked,
+			only_preview: params.only_preview.checked,
+		};
+
+		// 描画をしている間はぐるぐるを表示させる
+		this.ui_elements.upload_box_main.style.visibility = "hidden";
+		this.ui_elements.loading.forEach(elem => { elem.style.visibility = "visible"; });
+
+		setTimeout(async () => {
+			this.graph.draw(config);
 
 			// スタイルを元に戻す
 			this.ui_elements.upload_box_main.style.visibility = "visible";
 			this.ui_elements.loading.forEach(elem => { elem.style.visibility = "hidden"; });
 		}, 0);
 	}
-	draw() {}
 	load_preset(name) {}
 	reflect_sql_info(sql_info) {
 		// 範囲選択をするスライドバーの範囲更新
