@@ -37,17 +37,19 @@ uniform mat4 matrix;
 varying vec2 v_uv;
 varying vec4 v_color;
 
+uniform int enable_correction;
+
 uniform vec2 f;
 uniform vec2 c;
 uniform vec4 k;
-uniform vec2 input_scale;
-uniform vec2 output_scale;
+uniform vec2 offset;
+uniform vec2 calib_input_scale;
 uniform mat3 t;
 
 const float PI = 3.14159265359;
 const float EPS = 1e-4;
 
-vec2 undistortPoints(vec2 src, vec2 f, vec2 c, vec2 input_scale, vec2 output_scale) {
+vec2 undistortPoints(vec2 src, vec2 f, vec2 c, vec2 input_scale, float output_scale) {
 	f *= input_scale; c *= input_scale;
 	vec2 pw = (src - c) / f;
 
@@ -91,11 +93,15 @@ vec2 undistortPoints(vec2 src, vec2 f, vec2 c, vec2 input_scale, vec2 output_sca
 void main(void) {
 	v_uv = uv;
 	v_color = color;
-	vec2 pos = undistortPoints(position.xy, f, c, input_scale, output_scale);
+	vec2 pos = position.xy;
+	if (enable_correction == 1) {
+		pos = undistortPoints(pos, f, c, calib_input_scale, 1.0);
+	}
 	pos = vec2(
 		(pos.x * t[0][0] + pos.y * t[1][0] + t[2][0]) / (pos.x * t[0][2] + pos.y * t[1][2] + t[2][2]),
 		(pos.x * t[0][1] + pos.y * t[1][1] + t[2][1]) / (pos.x * t[0][2] + pos.y * t[1][2] + t[2][2])
 	);
+	pos += offset;
 	gl_Position = matrix * vec4(pos, 0.0, 1.0);
 }`
 		, this.shader.default_shader.fragment);
@@ -203,29 +209,52 @@ void main(void) {
 		}
 	}
 	draw(config) {
-		// 背景を黒に、線の太さは3pxに設定する
+		// キャンバスのサイズを変更
+		this.plot_canvas.width = config.output_width;
+		this.plot_canvas.height = config.output_height;
+		this.graphics.resize(this.plot_canvas.width, this.plot_canvas.height);
+
+		// 背景を黒にする
 		this.graphics.shader(this.graphics.shaders.normal);
 		this.graphics.fill(0, 0, 0, 1);
 		this.graphics.rect(0, 0, this.plot_canvas.width, this.plot_canvas.height);
 
-		/*
-		uniform vec2 f;
-		uniform vec2 c;
-		uniform vec4 k;
-		uniform vec2 input_scale;
-		uniform vec2 output_scale;
-		uniform mat3 t;
-		*/
-
+		// 変換行列を計算
+		let four_points = [
+			[0.0               , 0.0                ],
+			[config.input_width, 0.0                ],
+			[config.input_width, config.input_height],
+			[0.0               , config.input_height]
+		];
+		let four_points_size = [config.input_width, config.input_height];
+		let four_points_scale = 1.0;
+		let four_points_offset = [0.0, 0.0];
+		if ((config.enable_transform) && (!config.only_preview)) {
+			four_points = [config.p1, config.p2, config.p3, config.p4];
+			four_points_size = [config.p1_p2_distance, config.p2_p3_distance];
+			four_points_scale = config.transform_scale;
+			four_points_offset = [config.transform_offset_x, config.transform_offset_y];
+		}
+		if (config.enable_correction) {
+			four_points = four_points.map(src => undistortPoints(
+				src, config.f, config.c, config.k, config.calib_input_scale, 1.0
+			));
+		}
+		const t = getPerspectiveTransform(four_points, rect_scale(
+			four_points_size[0], four_points_size[1],
+			config.output_width, config.output_height, four_points_scale
+		));
 		
+		// シェーダーのuniform変数を設定
 		this.graphics.shader(this.shader);
-		this.shader.set("f", config.fx, config.fy);
-		this.shader.set("c", config.cx, config.cy);
-		this.shader.set("k", config.k1, config.k2, config.k3, config.k4);
-		this.shader.set("input_scale", config.input_scale_x, config.input_scale_y);
-		this.shader.set("output_scale", config.output_scale, config.output_scale);
-		this.shader.set("t", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-
+		this.shader.set("enable_correction", config.enable_correction ? 1 : 0);
+		this.shader.set("enable_transform", config.enable_transform ? 1 : 0);
+		this.shader.set("f", config.f[0], config.f[1]);
+		this.shader.set("c", config.c[0], config.c[1]);
+		this.shader.set("k", config.k[0], config.k[1], config.k[2], config.k[3]);
+		this.shader.set("offset", four_points_offset[0], four_points_offset[1]);
+		this.shader.set("calib_input_scale", config.calib_input_scale[0], config.calib_input_scale[1]);
+		this.shader.set("t", t);
 
 		// 描画する時間の範囲からフレームの範囲を取得する
 		const frameRangeStatement = this.database.prepare(
@@ -264,10 +293,10 @@ void main(void) {
 				let h = parseFloat(personID) * 0.111;
 				h = h - Math.floor(h);
 				const color = hsvToRgb(h, 0.5, 1.0);
-				this.graphics.gshape.color(color.r, color.g, color.b, 0.1);
+				this.graphics.gshape.color(color.r, color.g, color.b, config.line_transparent);
 
 				// 新たに軌跡の描画を開始する
-				this.graphics.gshape.beginWeightShape(1.0);
+				this.graphics.gshape.beginWeightShape(config.line_weight);
 				drawn = true;
 
 				// 軌跡の始点を追加
@@ -284,51 +313,20 @@ void main(void) {
 		if (drawn) {
 			this.graphics.gshape.endWeightShape();
 			this.graphics.shape(this.graphics.gshape);
-			this.graphics.render();
 		}
+
+		// 射影変換の4点の範囲に直線を描く
+		if ((config.enable_transform) && ((config.draw_border) || (config.only_preview))) {
+			this.graphics.gshape.color(1.0, 0.0, 0.0, 1.0);
+			this.graphics.gshape.beginWeightShape(config.line_weight, true);
+			this.graphics.gshape.vertex(config.p1[0], config.p1[1], 0);
+			this.graphics.gshape.vertex(config.p2[0], config.p2[1], 0);
+			this.graphics.gshape.vertex(config.p3[0], config.p3[1], 0);
+			this.graphics.gshape.vertex(config.p4[0], config.p4[1], 0);
+			this.graphics.gshape.endWeightShape();
+			this.graphics.shape(this.graphics.gshape);
+		}
+
+		this.graphics.render();
 	}
 };
-
-/*
-		return 0;
-	}
-	catch(e) {
-		document.getElementById("error").innerHTML
-			= "不明なエラーが発生しました。<br><br>"
-			+ e.toString();
-		return 1;
-	}
-};
-
-const getInfo = (database) => {
-
-
-};
-
-const draw = (startTime, stopTime) => {
-	if (database === null) return;
-
-	// canvasのelementを取得
-	const canvas = document.getElementById("plot-canvas");
-	const graphics = new HydrangeaJS.WebGL.Graphics(canvas);
-
-	
-
-	// ローディングのぐるぐるを消す
-	document.getElementById("draw-loading").style.visibility = "hidden";
-};
-
-const rect_scale = (x, y, width, height, zoom) => {
-	const rate = (x / y) / (width / height);
-	const scale = zoom * 0.5 * ((rate > 1.0) ? (width / x) : (height / y));
-	const center_x = width / 2.0;
-	const center_y = height / 2.0;
-	x *= scale; y *= scale;
-	return [
-		[center_x - x, center_y - y],
-		[center_x + x, center_y - y],
-		[center_x + x, center_y + y],
-		[center_x - x, center_y + y]
-	];
-};
-*/

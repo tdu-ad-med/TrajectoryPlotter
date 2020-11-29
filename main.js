@@ -55,7 +55,6 @@ const UIControll = class {
 			k2: document.getElementById("k2"),
 			k3: document.getElementById("k3"),
 			k4: document.getElementById("k4"),
-			calib_scale: document.getElementById("calib_scale"),
 			enable_transform: document.getElementById("enable_transform"),
 			p1_x: document.getElementById("p1_x"),
 			p1_y: document.getElementById("p1_y"),
@@ -132,7 +131,7 @@ const UIControll = class {
 
 		// プリセットを読み込んだとき
 		this.ui_elements.preset_param.forEach(elem => { elem.addEventListener("click", e => {
-			this.load_preset(elem.value);
+			this.load_preset(elem.id);
 		}); });
 
 		// 適応ボタンが押されたとき
@@ -170,9 +169,11 @@ const UIControll = class {
 		const frameRange = this.ui_elements.slider.noUiSlider.get();
 		const config = {
 			// 基本設定
-			width: parseFloat(params.output_width.value),
-			height: parseFloat(params.output_height.value),
-			line_transparent: parseFloat(params.line_transparent.value),
+			input_width: parseFloat(params.input_width.value),
+			input_height: parseFloat(params.input_height.value),
+			output_width: parseFloat(params.output_width.value),
+			output_height: parseFloat(params.output_height.value),
+			line_transparent: parseFloat(params.line_transparent.value) * 0.01,
 			line_weight: parseFloat(params.line_weight.value),
 			background_image: (1 === params.background_image.files.length) ? params.background_image.files[0] : null,
 			// 描画範囲
@@ -180,27 +181,22 @@ const UIControll = class {
 			stopTime: parseFloat(frameRange[1]),
 			// レンズの歪み補正
 			enable_correction: params.enable_correction.checked,
-			fx: parseFloat(params.fx.value),
-			fy: parseFloat(params.fy.value),
-			cx: parseFloat(params.cx.value),
-			cy: parseFloat(params.cy.value),
-			k1: parseFloat(params.k1.value),
-			k2: parseFloat(params.k2.value),
-			k3: parseFloat(params.k3.value),
-			k4: parseFloat(params.k4.value),
-			input_scale_x: parseFloat(params.input_width.value) / parseFloat(params.calib_width.value),
-			input_scale_y: parseFloat(params.input_height.value) / parseFloat(params.calib_height.value),
-			output_scale: parseFloat(params.calib_scale.value) * 0.01,
+			f: [parseFloat(params.fx.value), parseFloat(params.fy.value)],
+			c: [parseFloat(params.cx.value), parseFloat(params.cy.value)],
+			k: [
+				parseFloat(params.k1.value), parseFloat(params.k2.value),
+				parseFloat(params.k3.value), parseFloat(params.k4.value)
+			],
+			calib_input_scale: [
+				parseFloat(params.input_width.value) / parseFloat(params.calib_width.value),
+				parseFloat(params.input_height.value) / parseFloat(params.calib_height.value)
+			],
 			// 射影変換
 			enable_transform: params.enable_transform.checked,
-			p1_x: parseFloat(params.p1_x.value),
-			p1_y: parseFloat(params.p1_y.value),
-			p2_x: parseFloat(params.p2_x.value),
-			p2_y: parseFloat(params.p2_y.value),
-			p3_x: parseFloat(params.p3_x.value),
-			p3_y: parseFloat(params.p3_y.value),
-			p4_x: parseFloat(params.p4_x.value),
-			p4_y: parseFloat(params.p4_y.value),
+			p1: [parseFloat(params.p1_x.value), parseFloat(params.p1_y.value)],
+			p2: [parseFloat(params.p2_x.value), parseFloat(params.p2_y.value)],
+			p3: [parseFloat(params.p3_x.value), parseFloat(params.p3_y.value)],
+			p4: [parseFloat(params.p4_x.value), parseFloat(params.p4_y.value)],
 			p1_p2_distance: parseFloat(params.p1_p2_distance.value),
 			p2_p3_distance: parseFloat(params.p2_p3_distance.value),
 			transform_scale: parseFloat(params.transform_scale.value) * 0.01,
@@ -222,7 +218,44 @@ const UIControll = class {
 			this.ui_elements.loading.forEach(elem => { elem.style.visibility = "hidden"; });
 		}, 0);
 	}
-	load_preset(name) {}
+	load_preset(id) {
+		const params = this.param_elements;
+		const values = presets[id];
+		params.input_width.value = values.input_width;
+		params.input_height.value = values.input_height;
+		params.output_width.value = values.output_width;
+		params.output_height.value = values.output_height;
+		params.enable_correction.checked = values.enable_correction;
+		params.enable_correction.dispatchEvent(new Event("change"));
+		params.fx.value = values.f[0];
+		params.fy.value = values.f[1];
+		params.cx.value = values.c[0];
+		params.cy.value = values.c[1];
+		params.k1.value = values.k[0];
+		params.k2.value = values.k[1];
+		params.k3.value = values.k[2];
+		params.k4.value = values.k[3];
+		params.enable_transform.checked = values.enable_transform;
+		params.enable_transform.dispatchEvent(new Event("change"));
+		params.p1_x.value = values.p1[0];
+		params.p1_y.value = values.p1[1];
+		params.p2_x.value = values.p2[0];
+		params.p2_y.value = values.p2[1];
+		params.p3_x.value = values.p3[0];
+		params.p3_y.value = values.p3[1];
+		params.p4_x.value = values.p4[0];
+		params.p4_y.value = values.p4[1];
+		params.p1_p2_distance.value = values.p1_p2_distance;
+		params.p2_p3_distance.value = values.p2_p3_distance;
+		params.transform_scale.value = values.transform_scale;
+		params.transform_offset_x.value = values.transform_offset_x;
+		params.transform_offset_y.value = values.transform_offset_y;
+		params.draw_border.checked = values.draw_border;
+		params.draw_border.dispatchEvent(new Event("change"));
+		params.only_preview.checked = values.only_preview;
+		params.only_preview.dispatchEvent(new Event("change"));
+		this.draw();
+	}
 	reflect_sql_info(sql_info) {
 		// 範囲選択をするスライドバーの範囲更新
 		this.ui_elements.slider.noUiSlider.updateOptions({
@@ -233,95 +266,3 @@ const UIControll = class {
 };
 
 const uiControll = new UIControll();
-
-/*
-
-const openFile = (files) => {
-	// ファイルを読み込んでいる間はぐるぐるを表示させる
-	document.getElementById("error").innerHTML = "";
-	document.getElementById("upload-box-main").style.visibility = "hidden";
-	document.getElementById("upload-box-loading").style.visibility = "visible";
-	document.getElementById("draw-loading").style.visibility = "visible";
-
-	setTimeout(async () => {
-		if (files.length === 1) {
-			if (await loadSQL(files[0]) !== 1) {
-				document.getElementById("upload").style.display = "none";
-				document.getElementById("plot").style.display = "block";
-			}
-		}
-
-		// スタイルを元に戻す
-		document.getElementById("upload-box-main").style.visibility = "visible";
-		document.getElementById("upload-box-loading").style.visibility = "hidden";
-	}, 0);
-};
-
-document.addEventListener("DOMContentLoaded", () => {
-	// ファイルを読み込むイベント
-	document.getElementById("file-selector").addEventListener("change", e => {
-		const files = e.target.files;
-		openFile(files);
-	}, false);
-	document.addEventListener("dragover", e => {
-		e.preventDefault();
-		document.getElementById("upload-box").style.background = "#555";
-	}, false);
-	document.addEventListener("dragleave", e => {
-		document.getElementById("upload-box").style.background = "#F2F2F2";
-	}, false);
-	document.addEventListener("drop", e => {
-		e.preventDefault();
-		document.getElementById("upload-box").style.background = "#F2F2F2";
-		const files = e.dataTransfer.files;
-		openFile(files);
-	}, false);
-
-	// 範囲選択をするスライドバーの設置
-	const slider = document.getElementById('slider');
-	const range_text = document.getElementById('range-text');
-	const range_mask = document.getElementById('range-mask');
-	noUiSlider.create(slider, {
-		range: {
-			'min': 0,
-			'max': 1
-		},
-		start: [0, 1],
-		step: 1,
-		connect: true
-	});
-
-	// スライドバーが更新されたとき(変更中)
-	slider.noUiSlider.on('update.one', (values, handle) => {
-		range_text.innerHTML
-			= `開始時間 : ${timeFormatter(parseFloat(values[0]))}<br>終了時間 : ${timeFormatter(parseFloat(values[1]))}`;
-		range_mask.style.left
-			= (100.0 * parseFloat(values[0]) / (info.stopTime - info.startTime)) + "%";
-		range_mask.style.width
-			= (100.0 * (parseFloat(values[1]) - parseFloat(values[0])) / (info.stopTime - info.startTime)) + "%";
-	});
-
-	// スライドバーが更新されたとき(変更完了後)
-	slider.noUiSlider.on('set.one', (values, handle) => {
-		// ローディングのぐるぐるを表示する
-		document.getElementById("draw-loading").style.visibility = "visible";
-
-		// 再描画
-		setTimeout(() => {
-			draw(parseInt(values[0]), parseInt(values[1]));
-		}, 0);
-	});
-
-	// チェックボックスが変更されたとき
-	document.getElementById("transform").addEventListener("change", (event) => {
-		// ローディングのぐるぐるを表示する
-		document.getElementById("draw-loading").style.visibility = "visible";
-
-		// 再描画
-		setTimeout(() => {
-			draw(parseInt(slider.noUiSlider.get()[0]), parseInt(slider.noUiSlider.get()[1]));
-		}, 0);
-	}, false);
-}, false);
-
-*/

@@ -20,6 +20,7 @@
 
 	<!-- メインプログラム -->
 	<script src="hydrangea.js"></script>
+	<script src="presets.js"></script>
 	<script src="math.js"></script>
 	<script src="draw.js"></script>
 	<script src="main.js"></script>
@@ -44,10 +45,10 @@
 			<div style="text-align: left;">
 				<h3 style="margin-top: min(7.0vw, 42px);">パラメータをプリセットから読み込む</h3>
 				<div style="margin-left: min(5.0vw, 30px);">
-					<input type="button" value="カメラ1" class="preset_param">
-					<input type="button" value="カメラ2" class="preset_param">
-					<input type="button" value="カメラ3" class="preset_param">
-					<input type="button" value="カメラ4" class="preset_param">
+					<input type="button" value="カメラ1" id="camera1" class="preset_param">
+					<input type="button" value="カメラ2" id="camera2" class="preset_param">
+					<input type="button" value="カメラ3" id="camera3" class="preset_param">
+					<input type="button" value="カメラ4" id="camera4" class="preset_param">
 				</div>
 				<h3 style="margin-top: min(7.0vw, 42px);">基本設定</h3>
 				<div style="margin-left: min(5.0vw, 30px); height: 0%;">
@@ -63,7 +64,7 @@
 				<h3 style="margin-top: min(7.0vw, 42px);">詳細設定</h3>
 				<div style="margin-left: min(5.0vw, 30px);">
 					<p>背景画像: <input type="file" id="background_image"></p>
-					<p>線の透明度: <input type="number" id="line_transparent" value="0.1"> %</p>
+					<p>線の透明度: <input type="number" id="line_transparent" value="10.0"> %</p>
 					<p>線の太さ: <input type="number" id="line_weight" value="1.0"> px</p>
 				</div>
 				<h3 style="margin-top: min(7.0vw, 42px);">
@@ -87,7 +88,6 @@
 					<p>カメラレンズの半径方向の歪み係数(k2): <input type="number" id="k2" value="0.0"></p>
 					<p>カメラレンズの半径方向の歪み係数(k3): <input type="number" id="k3" value="0.0"></p>
 					<p>カメラレンズの半径方向の歪み係数(k4): <input type="number" id="k4" value="0.0"></p>
-					<p>拡大率: <input type="number" id="calib_scale" value="50"> %</p>
 				</div>
 				<h3 style="margin-top: min(7.0vw, 42px);">
 					射影変換を行う

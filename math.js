@@ -136,7 +136,7 @@ const getPerspectiveTransform = (src, dst) => {
 		answer[0], answer[3], answer[6],
 		answer[1], answer[4], answer[7],
 		answer[2], answer[5], 1.0
-	].join(", ");
+	];
 };
 
 /**
@@ -195,4 +195,25 @@ const undistortPoints = (src, f, c, k, input_scale, output_scale) => {
 		return pu;
 	}
 	else { return [-1000000.0, -1000000.0]; }
+};
+
+/**
+ * 1つの長方形がアスペクト比を維持したまま、もう1つの長方形に収まるような4つの頂点を求める
+ * @param input_width, input_height 内側の長方形のサイズ
+ * @param output_width, output_height 外側の長方形のサイズ
+ * @param zoom 内側の長方形の拡大率
+ * @return 変換後の内側の長方形の4点の座標
+ */
+const rect_scale = (input_width, input_height, output_width, output_height, zoom) => {
+	const rate = (input_width / input_height) / (output_width / output_height);
+	const scale = zoom * 0.5 * ((rate > 1.0) ? (output_width / input_width) : (output_height / input_height));
+	const center_x = output_width / 2.0;
+	const center_y = output_height / 2.0;
+	input_width *= scale; input_height *= scale;
+	return [
+		[center_x - input_width, center_y - input_height],
+		[center_x + input_width, center_y - input_height],
+		[center_x + input_width, center_y + input_height],
+		[center_x - input_width, center_y + input_height]
+	];
 };
