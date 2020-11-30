@@ -8,7 +8,7 @@ h3 { font-size: min(4vw, 24px); font-weight: bold; }
 p  { font-size: min(3vw, 18px); font-weight: bold; }
 .main {
 	display: block;
-	width: 80%;
+	width: 100%;
 	max-width: 800px;
 	margin: auto;
 	margin-bottom: 15vw; 
