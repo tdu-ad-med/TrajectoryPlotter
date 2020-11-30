@@ -262,6 +262,10 @@ const UIControll = class {
 			range: { 'min': sql_info.startTime, 'max': sql_info.stopTime },
 			start: [ sql_info.startTime, sql_info.stopTime ]
 		}, false);
+
+		// 軌跡の座標の最大値を取得する
+		this.param_elements.input_width.value = sql_info.trajectoryRange.width;
+		this.param_elements.input_height.value = sql_info.trajectoryRange.height;
 	}
 };
 
