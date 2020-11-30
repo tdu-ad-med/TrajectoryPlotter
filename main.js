@@ -42,6 +42,7 @@ const UIControll = class {
 			output_width: document.getElementById("output_width"),
 			output_height: document.getElementById("output_height"),
 			background_image: document.getElementById("background_image"),
+			texture_transparent: document.getElementById("texture_transparent"),
 			line_transparent: document.getElementById("line_transparent"),
 			line_weight: document.getElementById("line_weight"),
 			enable_correction: document.getElementById("enable_correction"),
@@ -119,6 +120,20 @@ const UIControll = class {
 			this.draw();
 		});
 
+		// 背景画像が読み込まれたとき
+		this.param_elements.background_image.addEventListener("change", (event) => {
+			if (1 !== event.target.files.length) return;
+			const url = URL.createObjectURL(event.target.files[0]);
+			this.graph.loadImg(url, () => {
+				console.log(url);
+				URL.revokeObjectURL(url);
+				this.draw();
+			});
+			setTimeout(async () => {
+				URL.revokeObjectURL(url);
+			}, 1000);
+		});
+
 		// チェックボックスが変更されたとき
 		this.param_elements.enable_correction.addEventListener("change", (event) => {
 			this.ui_elements.correction_param.style.display =
@@ -173,6 +188,7 @@ const UIControll = class {
 			input_height: parseFloat(params.input_height.value),
 			output_width: parseFloat(params.output_width.value),
 			output_height: parseFloat(params.output_height.value),
+			texture_transparent: parseFloat(params.texture_transparent.value) * 0.01,
 			line_transparent: parseFloat(params.line_transparent.value) * 0.01,
 			line_weight: parseFloat(params.line_weight.value),
 			background_image: (1 === params.background_image.files.length) ? params.background_image.files[0] : null,
@@ -211,7 +227,12 @@ const UIControll = class {
 		this.ui_elements.loading.forEach(elem => { elem.style.visibility = "visible"; });
 
 		setTimeout(async () => {
-			this.graph.draw(config);
+			try {
+				this.graph.draw(config);
+			}
+			catch(e) {
+				this.error("不明なエラーが発生しました。", e);
+			}
 
 			// スタイルを元に戻す
 			this.ui_elements.upload_box_main.style.visibility = "visible";
@@ -235,6 +256,8 @@ const UIControll = class {
 		params.k2.value = values.k[1];
 		params.k3.value = values.k[2];
 		params.k4.value = values.k[3];
+		params.calib_width.value = values.calib_width;
+		params.calib_height.value = values.calib_height;
 		params.enable_transform.checked = values.enable_transform;
 		params.enable_transform.dispatchEvent(new Event("change"));
 		params.p1_x.value = values.p1[0];
@@ -254,7 +277,7 @@ const UIControll = class {
 		params.draw_border.dispatchEvent(new Event("change"));
 		params.only_preview.checked = values.only_preview;
 		params.only_preview.dispatchEvent(new Event("change"));
-		this.draw();
+		this.graph.loadImg(values.background_image, () => { this.draw(); });
 	}
 	reflect_sql_info(sql_info) {
 		// 範囲選択をするスライドバーの範囲更新

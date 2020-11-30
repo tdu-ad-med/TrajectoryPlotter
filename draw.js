@@ -27,8 +27,7 @@ const Graph = class {
 		};
 		this.range_context = this.range_canvas.getContext('2d');
 		this.graphics = new HydrangeaJS.WebGL.Graphics(plot_canvas);
-		this.shader = this.graphics.createShader();
-		this.shader.loadShader(
+		const vertex_shader_code =
 `precision highp float;
 attribute vec3 position;
 attribute vec2 uv;
@@ -104,8 +103,20 @@ void main(void) {
 	pos += offset;
 	gl_Position = matrix * vec4(pos, 0.0, 1.0);
 }`
-		, this.shader.default_shader.fragment);
-		this.graphics.shader(this.shader);
+		const backimage_shader_code =
+`precision highp float;
+uniform sampler2D texture;
+uniform float texture_transparent;
+varying vec2 v_uv;
+varying vec4 v_color;
+void main(void){
+	gl_FragColor = vec4(texture2D(texture, v_uv).rgb * texture_transparent, 1.0);
+}`;
+		this.line_shader = this.graphics.createShader();
+		this.line_shader.loadShader(vertex_shader_code, this.line_shader.default_shader.fragment);
+		this.backimage_shader = this.graphics.createShader();
+		this.backimage_shader.loadShader(vertex_shader_code, backimage_shader_code);
+		this.texture = this.graphics.createTexture(1, 1);
 	}
 	async open_file(file) {
 		try {
@@ -246,15 +257,21 @@ void main(void) {
 		));
 		
 		// シェーダーのuniform変数を設定
-		this.graphics.shader(this.shader);
-		this.shader.set("enable_correction", config.enable_correction ? 1 : 0);
-		this.shader.set("enable_transform", config.enable_transform ? 1 : 0);
-		this.shader.set("f", config.f[0], config.f[1]);
-		this.shader.set("c", config.c[0], config.c[1]);
-		this.shader.set("k", config.k[0], config.k[1], config.k[2], config.k[3]);
-		this.shader.set("offset", four_points_offset[0], four_points_offset[1]);
-		this.shader.set("calib_input_scale", config.calib_input_scale[0], config.calib_input_scale[1]);
-		this.shader.set("t", t);
+		this.graphics.shader(this.backimage_shader);
+		this.backimage_shader.set("enable_correction", config.enable_correction ? 1 : 0);
+		this.backimage_shader.set("enable_transform", config.enable_transform ? 1 : 0);
+		this.backimage_shader.set("f", config.f[0], config.f[1]);
+		this.backimage_shader.set("c", config.c[0], config.c[1]);
+		this.backimage_shader.set("k", config.k[0], config.k[1], config.k[2], config.k[3]);
+		this.backimage_shader.set("offset", four_points_offset[0], four_points_offset[1]);
+		this.backimage_shader.set("calib_input_scale", config.calib_input_scale[0], config.calib_input_scale[1]);
+		this.backimage_shader.set("t", t);
+		this.backimage_shader.set("texture", this.texture);
+		this.backimage_shader.set("texture_transparent", config.texture_transparent);
+
+		// 背景にテクスチャを描画
+		texture_subdivision(this.graphics, this.texture, 0, 0, config.input_width, config.input_height);
+		//this.graphics.image(this.texture, 0, 0, config.input_width, config.input_height);
 
 		// 描画する時間の範囲からフレームの範囲を取得する
 		const frameRangeStatement = this.database.prepare(
@@ -269,6 +286,17 @@ void main(void) {
 			"SELECT * FROM trajectory WHERE $start <= frame AND frame <= $stop ORDER BY people ASC, frame ASC"
 		);
 		statement.bind({"$start": startFrame, "$stop": stopFrame});
+
+		// シェーダーのuniform変数を設定
+		this.graphics.shader(this.line_shader);
+		this.line_shader.set("enable_correction", config.enable_correction ? 1 : 0);
+		this.line_shader.set("enable_transform", config.enable_transform ? 1 : 0);
+		this.line_shader.set("f", config.f[0], config.f[1]);
+		this.line_shader.set("c", config.c[0], config.c[1]);
+		this.line_shader.set("k", config.k[0], config.k[1], config.k[2], config.k[3]);
+		this.line_shader.set("offset", four_points_offset[0], four_points_offset[1]);
+		this.line_shader.set("calib_input_scale", config.calib_input_scale[0], config.calib_input_scale[1]);
+		this.line_shader.set("t", t);
 
 		// 取得した軌跡のデータ数だけループする
 		let personID = -1;
@@ -328,5 +356,8 @@ void main(void) {
 		}
 
 		this.graphics.render();
+	}
+	loadImg(url, callback) {
+		this.texture.loadImg(url, callback);
 	}
 };

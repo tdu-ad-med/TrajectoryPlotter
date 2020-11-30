@@ -217,3 +217,30 @@ const rect_scale = (input_width, input_height, output_width, output_height, zoom
 		[center_x - input_width, center_y + input_height]
 	];
 };
+
+/**
+ * テクスチャを分割して描画する
+ * @param 
+ */
+const texture_subdivision = (graphics, texture, x, y, width, height, div = 63) => {
+	div += 1;
+	const step = 1.0 / div;
+	const width_step = step * width;
+	const height_step = step * height;
+	const tex_width_step = step * texture.width / texture.pow2_width;
+	const tex_height_step = step * texture.height / texture.pow2_height;
+	graphics.gshape.beginShape(graphics.gshape.gl.TRIANGLE_STRIP);
+	for(let i = 0.0; i < div; i++) {
+		const step_x = x + i * width_step;
+		const tex_x = i * tex_width_step;
+		const i2 = (i % 2 === 0);
+		for(let j = i2 ? 0.0 : div; i2 ? (j <= div) : (j >= 0.0); j += i2 ? 1.0 : -1.0) {
+			const step_y = y + j * height_step;
+			const tex_y = (div - j) * tex_height_step;
+			graphics.gshape.vertex(step_x             , step_y, 0, tex_x                 , tex_y);
+			graphics.gshape.vertex(step_x + width_step, step_y, 0, tex_x + tex_width_step, tex_y);
+		}
+	}
+	graphics.gshape.endShape();
+	graphics.shape(graphics.gshape);
+};
