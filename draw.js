@@ -113,7 +113,7 @@ void main(void){
 	gl_FragColor = vec4(texture2D(texture, v_uv).rgb * texture_transparent, 1.0);
 }`;
 		this.line_shader = this.graphics.createShader();
-		this.line_shader.loadShader(vertex_shader_code, this.line_shader.default_shader.fragment);
+		this.line_shader.loadShader(this.line_shader.default_shader.vertex, this.line_shader.default_shader.fragment);
 		this.backimage_shader = this.graphics.createShader();
 		this.backimage_shader.loadShader(vertex_shader_code, backimage_shader_code);
 		this.texture = this.graphics.createTexture(1, 1);
@@ -255,6 +255,12 @@ void main(void){
 			four_points_size[0], four_points_size[1],
 			config.output_width, config.output_height, four_points_scale
 		));
+		const t2 = getPerspectiveTransform(four_points, [
+			[0.0                , 0.0                ],
+			[four_points_size[0], 0.0                ],
+			[four_points_size[0], four_points_size[1]],
+			[0.0                , four_points_size[1]]
+		]);
 		
 		// シェーダーのuniform変数を設定
 		this.graphics.shader(this.backimage_shader);
@@ -280,6 +286,7 @@ void main(void){
 		const frameRange = frameRangeStatement.get({"$start": config.startTime, "$stop": config.stopTime});
 		const startFrame = frameRange[0];
 		const stopFrame =  frameRange[1];
+		const fps = (stopFrame - startFrame) / (0.001 * (config.stopTime - config.startTime));
 
 		// 描画するフレームの範囲内の全ての軌跡情報を取得する
 		const statement = this.database.prepare(
@@ -287,24 +294,46 @@ void main(void){
 		);
 		statement.bind({"$start": startFrame, "$stop": stopFrame});
 
-		// シェーダーのuniform変数を設定
+		// シェーダーを設定
 		this.graphics.shader(this.line_shader);
-		this.line_shader.set("enable_correction", config.enable_correction ? 1 : 0);
-		this.line_shader.set("enable_transform", config.enable_transform ? 1 : 0);
-		this.line_shader.set("f", config.f[0], config.f[1]);
-		this.line_shader.set("c", config.c[0], config.c[1]);
-		this.line_shader.set("k", config.k[0], config.k[1], config.k[2], config.k[3]);
-		this.line_shader.set("offset", four_points_offset[0], four_points_offset[1]);
-		this.line_shader.set("calib_input_scale", config.calib_input_scale[0], config.calib_input_scale[1]);
-		this.line_shader.set("t", t);
 
 		// 取得した軌跡のデータ数だけループする
 		let personID = -1;
 		let drawn = false;
+		//let back_real_pos = [0.0, 0.0];  // 1フレーム前の現実座標
+		//let color = {r: 1.0, g: 1.0, b: 1.0};
 		while (statement.step()) {
 			// 次の座標を取得
 			const value = statement.get();
-			const position = {"x": value[2], "y": value[3]};
+
+			// 歪み補正と射影変換
+			let pos = [value[2], value[3]];
+			if (config.enable_correction) {
+				pos = undistortPoints(pos, config.f, config.c, config.k, config.calib_input_scale, 1.0);
+			}
+			const screen_pos = [
+				((pos[0] * t[0] + pos[1] * t[3] + t[6]) / (pos[0] * t[2] + pos[1] * t[5] + t[8])) + four_points_offset[0],
+				((pos[0] * t[1] + pos[1] * t[4] + t[7]) / (pos[0] * t[2] + pos[1] * t[5] + t[8])) + four_points_offset[1]
+			];
+			const position = {"x": screen_pos[0], "y": screen_pos[1]};
+
+			/*
+			// 移動速度の計算 [m/s]
+			let velocity = 0.0;
+			const real_pos = [
+				((pos[0] * t2[0] + pos[1] * t2[3] + t2[6]) / (pos[0] * t2[2] + pos[1] * t2[5] + t2[8])),
+				((pos[0] * t2[1] + pos[1] * t2[4] + t2[7]) / (pos[0] * t2[2] + pos[1] * t2[5] + t2[8]))
+			];
+			if (config.enable_transform && (personID === value[1]) ) {
+				velocity = Math.sqrt(
+					((real_pos[0] - back_real_pos[0]) ** 2) + ((real_pos[1] - back_real_pos[1]) ** 2)
+				) / fps;
+			}
+			back_real_pos = real_pos;
+
+			// 速度が__より大きい場合には不透明度を0%にする
+			const transparent = (velocity > 0.001) ? 0.0 : config.line_transparent;
+			*/
 
 			// 人のIDが変わった場合
 			if (personID !== value[1]) {
@@ -321,6 +350,7 @@ void main(void){
 				let h = parseFloat(personID) * 0.111;
 				h = h - Math.floor(h);
 				const color = hsvToRgb(h, 0.5, 1.0);
+
 				this.graphics.gshape.color(color.r, color.g, color.b, config.line_transparent);
 
 				// 新たに軌跡の描画を開始する
@@ -328,13 +358,13 @@ void main(void){
 				drawn = true;
 
 				// 軌跡の始点を追加
-				this.graphics.gshape.vertex(position.x , position.y, 0);
+				this.graphics.gshape.vertex(position.x, position.y, 0);
 
 				continue;
 			}
 
 			// 軌跡の追加
-			this.graphics.gshape.vertex(position.x , position.y, 0);
+			this.graphics.gshape.vertex(position.x, position.y, 0);
 		}
 
 		// 最後の人の軌跡の描画を終了する
@@ -347,10 +377,20 @@ void main(void){
 		if ((config.enable_transform) && ((config.draw_border) || (config.only_preview))) {
 			this.graphics.gshape.color(1.0, 0.0, 0.0, 1.0);
 			this.graphics.gshape.beginWeightShape(config.line_weight, true);
-			this.graphics.gshape.vertex(config.p1[0], config.p1[1], 0);
-			this.graphics.gshape.vertex(config.p2[0], config.p2[1], 0);
-			this.graphics.gshape.vertex(config.p3[0], config.p3[1], 0);
-			this.graphics.gshape.vertex(config.p4[0], config.p4[1], 0);
+			for(let p of [config.p1, config.p2, config.p3, config.p4]) {
+				// 歪み補正と射影変換
+				let pos = [p[0], p[1]];
+				if (config.enable_correction) {
+					pos = undistortPoints(pos, config.f, config.c, config.k, config.calib_input_scale, 1.0);
+				}
+				pos = [
+					(pos[0] * t[0] + pos[1] * t[3] + t[6]) / (pos[0] * t[2] + pos[1] * t[5] + t[8]),
+					(pos[0] * t[1] + pos[1] * t[4] + t[7]) / (pos[0] * t[2] + pos[1] * t[5] + t[8])
+				];
+				pos[0] += four_points_offset[0];
+				pos[1] += four_points_offset[1];
+				this.graphics.gshape.vertex(pos[0], pos[1], 0);
+			}
 			this.graphics.gshape.endWeightShape();
 			this.graphics.shape(this.graphics.gshape);
 		}
