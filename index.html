@@ -107,6 +107,15 @@
 					<p>4点の範囲に線を引く: <input type="checkbox" id="draw_border" checked="checked"></p>
 					<p>射影変換は行わず、4点の範囲の確認のみを行う: <input type="checkbox" id="only_preview"></p>
 				</div>
+				<h3 style="margin-top: min(7.0vw, 42px);">
+					メッシュマップを表示する
+					<input type="checkbox" id="enable_meshmap">
+				</h3>
+				<div style="margin-left: min(5.0vw, 30px); display: none;" id="meshmap_param">
+					<p>分割数: <input type="number" id="mesh_x" value="32"> x <input type="number" id="mesh_y" value="18"></p>
+					<p>人が次のフレーム間同じブロックにとどまっていた場合に、そのブロックの値を +1 する: <input type="number" id="mesh_countup" value="3"> フレーム</p>
+					<p>1ブロックの最大値(この値が最も濃い色となる): <input type="number" id="mesh_max" value="300"></p>
+				</div>
 			</div>
 		</div>
 		<div id="upload">

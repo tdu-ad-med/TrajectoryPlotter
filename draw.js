@@ -302,6 +302,11 @@ void main(void){
 		let drawn = false;
 		//let back_real_pos = [0.0, 0.0];  // 1フレーム前の現実座標
 		//let color = {r: 1.0, g: 1.0, b: 1.0};
+		const meshSize = {x: config.mesh_size[0], y: config.mesh_size[1]};
+		const meshMap = [...Array(meshSize.x)].map(() => Array(meshSize.y).fill(0));
+		let meshCount = 0;  // その人が同じメッシュから動かなかったフレーム数
+		let meshTmpPosition = {"x": -1, "y": -1};  // その人が1フレーム前にいたメッシュの座標
+		// meshMap[x][y] = value;
 		while (statement.step()) {
 			// 次の座標を取得
 			const value = statement.get();
@@ -334,6 +339,29 @@ void main(void){
 			// 速度が__より大きい場合には不透明度を0%にする
 			const transparent = (velocity > 0.001) ? 0.0 : config.line_transparent;
 			*/
+
+			// メッシュマップの計算
+			const meshPosition = {
+				"x": parseInt(position.x * meshSize.x / this.plot_canvas.width),
+				"y": parseInt(position.y * meshSize.y / this.plot_canvas.height)
+			};
+			if (personID !== value[1]) {
+				meshCount = 0;
+				meshTmpPosition = {"x": -1, "y": -1};
+			}
+			if (0 <= meshPosition.x && meshPosition.x < meshSize.x && 0 <= meshPosition.y && meshPosition.y < meshSize.y) {
+				if (meshPosition.x == meshTmpPosition.x && meshPosition.y == meshTmpPosition.y) {
+					meshCount += 1;
+					if (meshCount >= config.mesh_countup) {
+						meshMap[meshPosition.x][meshPosition.y] += 1;
+						meshCount = 0;
+					}
+				}
+				else {
+					meshCount = 0;
+				}
+			}
+			meshTmpPosition = meshPosition;
 
 			// 人のIDが変わった場合
 			if (personID !== value[1]) {
@@ -371,6 +399,28 @@ void main(void){
 		if (drawn) {
 			this.graphics.gshape.endWeightShape();
 			this.graphics.shape(this.graphics.gshape);
+		}
+
+		// メッシュマップを描画する
+		if (config.enable_meshmap) {
+			for(let x = 0; x < meshSize.x; x++) {
+				const unitX = this.plot_canvas.width / meshSize.x;
+				const unitY = this.plot_canvas.height / meshSize.y;
+				const screenX = x * unitX;
+				for(let y = 0; y < meshSize.y; y++) {
+					const screenY = y * unitY;
+					const value = meshMap[x][y] / config.mesh_max;
+					this.graphics.fill(255, 0, 0, value);
+					this.graphics.stroke(0, 0, 0, 0);
+					this.graphics.rect(screenX, screenY, unitX, unitY);
+					if (screenX == 0 || screenY == 0) { continue; }
+					this.graphics.stroke(255, 255, 255, 0.1);
+					this.graphics.strokeWeight(1);
+					this.graphics.line(screenX - 4, screenY, screenX + 4, screenY);
+					this.graphics.line(screenX, screenY - 4, screenX, screenY + 4);
+
+				}
+			}
 		}
 
 		// 射影変換の4点の範囲に直線を描く

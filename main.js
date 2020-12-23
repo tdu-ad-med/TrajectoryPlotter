@@ -20,6 +20,7 @@ const UIControll = class {
 			range_text: document.getElementById("range_text"),
 			correction_param: document.getElementById("correction_param"),
 			transform_param: document.getElementById("transform_param"),
+			meshmap_param: document.getElementById("meshmap_param"),
 			preset_param: Array.from(document.getElementsByClassName("preset_param")),
 			upload: document.getElementById("upload"),
 			upload_box: document.getElementById("upload_box"),
@@ -72,6 +73,11 @@ const UIControll = class {
 			transform_offset_y: document.getElementById("transform_offset_y"),
 			draw_border: document.getElementById("draw_border"),
 			only_preview: document.getElementById("only_preview"),
+			enable_meshmap: document.getElementById("enable_meshmap"),
+			mesh_x: document.getElementById("mesh_x"),
+			mesh_y: document.getElementById("mesh_y"),
+			mesh_countup: document.getElementById("mesh_countup"),
+			mesh_max: document.getElementById("mesh_max"),
 		};
 
 		// sql.js の動作に必要な wasm を CDN から読み込む
@@ -142,6 +148,10 @@ const UIControll = class {
 		this.param_elements.enable_transform.addEventListener("change", (event) => {
 			this.ui_elements.transform_param.style.display =
 				this.param_elements.enable_transform.checked ? "block" : "none";
+		});
+		this.param_elements.enable_meshmap.addEventListener("change", (event) => {
+			this.ui_elements.meshmap_param.style.display =
+				this.param_elements.enable_meshmap.checked ? "block" : "none";
 		});
 
 		// プリセットを読み込んだとき
@@ -220,6 +230,11 @@ const UIControll = class {
 			transform_offset_y: parseFloat(params.transform_offset_y.value),
 			draw_border: params.draw_border.checked,
 			only_preview: params.only_preview.checked,
+			// メッシュマップ
+			enable_meshmap: params.enable_meshmap.checked,
+			mesh_size: [parseInt(params.mesh_x.value), parseFloat(params.mesh_y.value)],
+			mesh_countup: parseInt(params.mesh_countup.value),
+			mesh_max: parseInt(params.mesh_max.value),
 		};
 
 		// 描画をしている間はぐるぐるを表示させる
