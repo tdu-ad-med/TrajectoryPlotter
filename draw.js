@@ -135,10 +135,10 @@ void main(void){
 			// テーブルが存在しているかを確認
 			try {
 				const tableCount = this.database.exec(
-					"SELECT count(*) FROM sqlite_master WHERE name IN('timestamp', 'trajectory', 'people')"
+					"SELECT count(*) FROM sqlite_master WHERE name IN('timestamp', 'people', 'people_with_tracking')"
 				);
 				if (3 !== tableCount[0].values[0][0]) {
-					this.error("このsqlファイルにはpeopleテーブル、timestampテーブル、trajectoryテーブルのいずれかが存在していません。", e);
+					this.error("このsqlファイルにはpeopleテーブル、timestampテーブル、people_with_trackingテーブルのいずれかが存在していません。", "");
 					return 1;
 				}
 			}
