@@ -102,6 +102,7 @@ void main(void) {
 	);
 	pos += offset;
 	gl_Position = matrix * vec4(pos, 0.0, 1.0);
+	v_color.a = (abs(gl_Position.x) > 1.5 || abs(gl_Position.y) > 1.5) ? 0.0 : 1.0;
 }`
 		const backimage_shader_code =
 `precision highp float;
@@ -110,7 +111,7 @@ uniform float texture_transparent;
 varying vec2 v_uv;
 varying vec4 v_color;
 void main(void){
-	gl_FragColor = vec4(texture2D(texture, v_uv).rgb * texture_transparent, 1.0);
+	gl_FragColor = vec4(texture2D(texture, v_uv).rgb * texture_transparent, v_color.a);
 }`;
 		this.line_shader = this.graphics.createShader();
 		this.line_shader.loadShader(this.line_shader.default_shader.vertex, this.line_shader.default_shader.fragment);
