@@ -78,6 +78,8 @@ const UIControll = class {
 			mesh_y: document.getElementById("mesh_y"),
 			mesh_countup: document.getElementById("mesh_countup"),
 			mesh_max: document.getElementById("mesh_max"),
+			joints_avg: document.getElementById("joints_avg"),
+			joints_avg_foot: document.getElementById("joints_avg_foot"),
 		};
 
 		// sql.js の動作に必要な wasm を CDN から読み込む
@@ -235,6 +237,8 @@ const UIControll = class {
 			mesh_size: [parseInt(params.mesh_x.value), parseFloat(params.mesh_y.value)],
 			mesh_countup: parseInt(params.mesh_countup.value),
 			mesh_max: parseInt(params.mesh_max.value),
+			joints_avg: params.joints_avg.checked,
+			joints_avg_foot: params.joints_avg_foot.checked,
 		};
 
 		// 描画をしている間はぐるぐるを表示させる

@@ -154,9 +154,17 @@ void main(void){
 				[...Array(25).keys()].map(num=>`(joint${num}${axis}*joint${num}confidence)`).join("+") + ")/(" +
 				[...Array(25).keys()].map(num=>`joint${num}confidence`).join("+") +
 			"))");
+
+			// 足元の中心位置（キーポイント11,14,19~24計8点の中心点）を計算し、データベースに更新する
+			const foot_joints_number = [11,14,19,20,21,22,23,24];
+			const joint_avg_foot = axis => ("((" +
+				[...foot_joints_number].map(num=>`(joint${num}${axis}*joint${num}confidence)`).join("+") + ")/(" +
+				[...foot_joints_number].map(num=>`joint${num}confidence`).join("+") +
+			"))");
+
 			const statement = this.database.exec(
 				"CREATE TABLE trajectory AS SELECT frame, people, " +
-				`${joint_avg("x")} AS x, ${joint_avg("y")} AS y ` +
+				`${joint_avg("x")} AS x, ${joint_avg("y")} AS y, ${joint_avg_foot("x")} AS foot_x, ${joint_avg_foot("y")} AS foot_y ` +
 				"FROM people_with_tracking ORDER BY people ASC, frame ASC"
 			);
 
@@ -169,6 +177,7 @@ void main(void){
 			const trajectoryRangeTable = this.database.exec(
 				`SELECT min(x), min(y), max(x), max(y) FROM trajectory`
 			);
+
 			const trajectoryRangeArray = trajectoryRangeTable[0].values[0];
 			this.sql_info.trajectoryRange = {
 				left   : trajectoryRangeArray[0],
@@ -312,8 +321,15 @@ void main(void){
 			// 次の座標を取得
 			const value = statement.get();
 
-			// 歪み補正と射影変換
+			//デフォルトで全身キーポイント25点から中心点を計算
 			let pos = [value[2], value[3]];
+
+			//足元を選択したら足元キーポイント8点から中心点を計算
+			if(config.joints_avg_foot){
+				pos = [value[4],value[5]];
+			}
+
+			// 歪み補正と射影変換
 			if (config.enable_correction) {
 				pos = undistortPoints(pos, config.f, config.c, config.k, config.calib_input_scale, 1.0);
 			}
@@ -363,6 +379,10 @@ void main(void){
 				}
 			}
 			meshTmpPosition = meshPosition;
+
+			if(position.x * position.y === 0){
+				continue;
+			}
 
 			// 人のIDが変わった場合
 			if (personID !== value[1]) {
