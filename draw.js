@@ -329,6 +329,9 @@ void main(void){
 				pos = [value[4],value[5]];
 			}
 
+			// 足元が映されない（=sql文での0除算の実行結果がnullになる）ケースを排除する
+			if(pos[0] === null || pos[1] === null)	continue;
+
 			// 歪み補正と射影変換
 			if (config.enable_correction) {
 				pos = undistortPoints(pos, config.f, config.c, config.k, config.calib_input_scale, 1.0);
@@ -379,10 +382,6 @@ void main(void){
 				}
 			}
 			meshTmpPosition = meshPosition;
-
-			if(position.x < 1.0 || position.y < 1.0 || position.x > this.plot_canvas.width || position.y > this.plot_canvas.height){
-				continue;
-			}
 
 			// 人のIDが変わった場合
 			if (personID !== value[1]) {
@@ -440,6 +439,8 @@ void main(void){
 					this.graphics.line(screenX - 4, screenY, screenX + 4, screenY);
 					this.graphics.line(screenX, screenY - 4, screenX, screenY + 4);
 
+					//test
+					// console.log(`x: ${x}, y: ${y}, mesh value: ${meshMap[x][y]}`);
 				}
 			}
 		}
