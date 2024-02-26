@@ -380,7 +380,7 @@ void main(void){
 			}
 			meshTmpPosition = meshPosition;
 
-			if(position.x * position.y === 0){
+			if(position.x < 1.0 || position.y < 1.0 || position.x > this.plot_canvas.width || position.y > this.plot_canvas.height){
 				continue;
 			}
 
